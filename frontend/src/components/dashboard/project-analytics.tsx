@@ -1,0 +1,46 @@
+import { Card } from '../ui/card'
+
+export type AnalyticsPoint = {
+  day: string
+  label: string
+  value: number
+}
+
+export function ProjectAnalytics({ data }: { data: AnalyticsPoint[] }) {
+  const maxValue = Math.max(...data.map((point) => point.value))
+  const average = Math.round(data.reduce((sum, point) => sum + point.value, 0) / data.length)
+
+  return (
+    <Card className="tasko-card tasko-analytics-card">
+      <div className="tasko-card__heading">
+        <h2>Project Analytics</h2>
+        <div className="tasko-legend">
+          <span />
+          Weekly Activity
+        </div>
+      </div>
+
+      <div className="tasko-bars" aria-label="Atividade semanal">
+        {data.map((point) => (
+          <div className="tasko-bars__item" key={`${point.day}-${point.label}`}>
+            <div className="tasko-bars__bar">
+              <span style={{ height: `${point.value}%` }} />
+            </div>
+            <strong>{point.day}</strong>
+          </div>
+        ))}
+      </div>
+
+      <div className="tasko-analytics-card__summary">
+        <p>
+          <span>Average: </span>
+          <strong>{average}%</strong>
+        </p>
+        <p>
+          <span>Peak: </span>
+          <strong>{maxValue}%</strong>
+        </p>
+      </div>
+    </Card>
+  )
+}

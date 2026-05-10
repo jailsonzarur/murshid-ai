@@ -1,0 +1,47 @@
+:root {
+  --sans: 'Inter Tight', 'Inter Tight Placeholder', sans-serif;
+  --heading: 'Inter Tight', 'Inter Tight Placeholder', sans-serif;
+  --mono: ui-monospace, Consolas, monospace;
+
+  color: #111111;
+  color-scheme: light;
+  font: 16px/145% var(--sans);
+  font-synthesis: none;
+  background: #ffffff;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100%;
+}
+
+#root {
+  min-height: 100svh;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+p,
+h1,
+h2,
+h3 {
+  margin: 0;
+}

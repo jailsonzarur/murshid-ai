@@ -1,0 +1,69 @@
+[project]
+name = "api-v2"
+version = "0.1.0"
+description = "API v2 minimal com FastAPI, SQLAlchemy, JWT e usuarios"
+readme = "readme.md"
+requires-python = ">=3.11"
+dependencies = [
+    "alembic>=1.13.0",
+    "asyncpg>=0.30.0",
+    "bcrypt>=4.0.1",
+    "celery>=5.4.0",
+    "email-validator>=2.2.0",
+    "fastapi>=0.116.1",
+    "langchain-openai>=0.2.0",
+    "langgraph>=0.2.0",
+    "minio>=7.2.0",
+    "pillow>=10.0.0",
+    "pymupdf>=1.24.0",
+    "PyJWT[crypto]>=2.8.0",
+    "python-multipart>=0.0.12",
+    "python-decouple>=3.8",
+    "redis>=5.0.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "unstructured[pdf]>=0.16.0",
+    "uvicorn>=0.35.0",
+]
+
+[dependency-groups]
+dev = [
+    "aiosqlite>=0.20.0",
+    "basedpyright>=1.29.0",
+    "faker>=30.0.0",
+    "httpx>=0.27.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "pytest-describe>=2.2.0",
+    "pytest-xdist>=3.5.0",
+    "ruff>=0.11.0",
+]
+
+[tool.pytest.ini_options]
+cache_dir = ".cache/pytest"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["src/tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*", "it_*"]
+addopts = "-v --tb=short"
+
+[tool.basedpyright]
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
+exclude = ["src/tests"]
+
+[tool.ruff]
+cache-dir = ".cache/ruff"
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.coverage.run]
+data_file = "src/tests/.coverage"
+concurrency = ["greenlet", "thread"]
+
+[tool.coverage.html]
+directory = "src/tests/htmlcov"

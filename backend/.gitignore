@@ -1,0 +1,12 @@
+.venv/
+.cache/
+.DS_Store
+__pycache__/
+*.py[cod]
+.env
+.coverage
+htmlcov/
+coverage.xml
+report.xml
+*.db
+tmp/
