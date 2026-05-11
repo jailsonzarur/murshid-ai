@@ -83,9 +83,9 @@ jobs:
       - name: Run tests
         env:
           SECRET_KEY: test-secret-key-with-at-least-32-bytes
-          DATABASE_URL: sqlite+aiosqlite:///:memory:
+          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
           OPENAI_API_KEY: test-openai-key
-          REDIS_URL: redis://localhost:6379/0
+          REDIS_URL: "redis://localhost:6379/0"
         run: uv run pytest src/tests -n auto
 
   docker-build:
