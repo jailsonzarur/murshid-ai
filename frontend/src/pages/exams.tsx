@@ -4,6 +4,7 @@ import { AppShell } from '../components/layout/app-shell'
 import { Badge, type BadgeTone } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
+import { EmptyState } from '../components/ui/empty-state'
 import { FileDropzone } from '../components/ui/file-dropzone'
 import { Icon } from '../components/ui/icon'
 import { Input } from '../components/ui/input'
@@ -246,9 +247,10 @@ export function ExamsPage() {
 
         <div className="tasko-task-list">
           {isLoading ? (
-            <Card className="tasko-task-card">
-              <p className="empty-state-message">Carregando provas...</p>
-            </Card>
+            <EmptyState
+              description="Estamos buscando suas provas e status de processamento."
+              title="Carregando provas..."
+            />
           ) : filteredExams.length ? (
             filteredExams.map((exam) => (
               <Card className="tasko-task-card" key={exam.id}>
@@ -317,9 +319,10 @@ export function ExamsPage() {
               </Card>
             ))
           ) : (
-            <Card className="tasko-task-card">
-              <p className="empty-state-message">Nenhuma prova encontrada.</p>
-            </Card>
+            <EmptyState
+              description="Quando houver provas cadastradas, elas aparecerão nesta lista."
+              title="Nenhuma prova encontrada."
+            />
           )}
         </div>
       </section>

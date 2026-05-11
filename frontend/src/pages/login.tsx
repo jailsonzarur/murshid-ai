@@ -1,9 +1,7 @@
 import { useState, type FormEvent } from 'react'
 
-import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
-import { Icon } from '../components/ui/icon'
 import { Input } from '../components/ui/input'
 import { ApiError, getProfile, signIn } from '../lib/api'
 import { saveAuthProfile, saveAuthSession } from '../lib/auth'
@@ -80,76 +78,9 @@ export function LoginPage() {
 
   return (
     <main className="auth-shell">
-      <section className="auth-showcase" aria-label="IAsmim">
-        <div className="auth-brand">
-          <div className="auth-brand__mark">
-            <Icon name="sparkles" size={20} strokeWidth={2.2} />
-          </div>
-          <div>
-            <p>IAsmim</p>
-            <span>OCR inteligente de provas médicas</span>
-          </div>
-        </div>
-
-        <div className="auth-copy">
-          <Badge tone="green">Painel operacional</Badge>
-          <h1>Extraia, revise e acompanhe provas em um único fluxo.</h1>
-          <p>
-            Acesse o dashboard para gerenciar uploads, acompanhar status OCR e
-            visualizar questões processadas.
-          </p>
-        </div>
-
-        <Card className="auth-preview-card">
-          <div className="auth-preview-card__header">
-            <div>
-              <Badge tone="blue">OCR IA</Badge>
-              <p>Prova de Clínica Médica - PDF escaneado</p>
-            </div>
-            <span>
-              <Icon name="checkCircle" size={15} />
-              99%
-            </span>
-          </div>
-
-          <div className="auth-document">
-            <div className="auth-document__page">
-              <span />
-              <span />
-              <span />
-              <div>
-                <strong>A</strong>
-                <strong>B</strong>
-                <strong>C</strong>
-                <strong>D</strong>
-              </div>
-              <span />
-              <span />
-            </div>
-            <div className="auth-document__scan" />
-          </div>
-
-          <div className="auth-preview-card__list">
-            <div>
-              <Icon name="fileText" size={16} />
-              <span>Enunciados estruturados</span>
-            </div>
-            <div>
-              <Icon name="listChecks" size={16} />
-              <span>Alternativas identificadas</span>
-            </div>
-            <div>
-              <Icon name="trendingUp" size={16} />
-              <span>Fila monitorada</span>
-            </div>
-          </div>
-        </Card>
-      </section>
-
       <section className="auth-form-zone" aria-label="Login">
         <div className="auth-form-wrap">
           <div className="auth-form-heading">
-            <Badge tone="neutral">Acesso seguro</Badge>
             <h2>Entrar</h2>
             <p>Use suas credenciais para continuar.</p>
           </div>

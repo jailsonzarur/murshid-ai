@@ -1,6 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
 :root {
-  --sans: 'Inter Tight', 'Inter Tight Placeholder', sans-serif;
-  --heading: 'Inter Tight', 'Inter Tight Placeholder', sans-serif;
+  --sans: 'Inter', sans-serif;
+  --heading: 'Inter', sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
   color: #111111;

@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import type { ExamAnswers, Question, QuestionAnswer } from '../../types/exam'
 import { Button } from '../ui/button'
+import { EmptyState } from '../ui/empty-state'
 import { Icon } from '../ui/icon'
 import { QuestionCard } from './QuestionCard'
 
@@ -60,8 +61,10 @@ export function ExamViewer({ questions }: ExamViewerProps) {
   if (!questions.length) {
     return (
       <section className="exam-viewer exam-viewer-empty">
-        <Icon name="fileText" size={28} />
-        <p className="empty-state-message">Nenhuma questão disponível para esta prova.</p>
+        <EmptyState
+          description="Quando o processamento terminar, as questões estruturadas aparecerão aqui."
+          title="Nenhuma questão disponível para esta prova."
+        />
       </section>
     )
   }
