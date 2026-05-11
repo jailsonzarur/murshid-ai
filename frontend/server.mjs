@@ -2,7 +2,7 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, join, normalize, resolve } from "node:path";
 
-const port = Number(process.env.PORT || 80);
+const port = Number(process.env.PORT || 3000);
 const host = "0.0.0.0";
 const distDir = resolve("dist");
 
