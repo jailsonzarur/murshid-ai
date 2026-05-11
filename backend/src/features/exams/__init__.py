@@ -7,11 +7,11 @@ from src.features.exams.routes.get_exams import router as get_exams_router
 from src.features.exams.routes.upload_exam import router as upload_exam_router
 from src.features.questions.models import OptionModel, QuestionModel  # noqa: F401
 
-router = APIRouter(prefix="/exams", tags=["Exams"])
+router = APIRouter(tags=["Exams"])
 
-router.include_router(get_exams_router)
-router.include_router(get_exam_questions_router)
-router.include_router(upload_exam_router)
-router.include_router(delete_exam_router)
+router.include_router(get_exams_router, prefix="/exams")
+router.include_router(get_exam_questions_router, prefix="/exams")
+router.include_router(upload_exam_router, prefix="/exams")
+router.include_router(delete_exam_router, prefix="/exams")
 
 __all__ = ["router"]

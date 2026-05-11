@@ -11,7 +11,7 @@ from src.shared.schemas.http import SuccessResponse
 router = APIRouter()
 
 
-@router.get("/", operation_id="getExams", response_model=SuccessResponse[list[ExamListSchema]])
+@router.get("", operation_id="getExams", response_model=SuccessResponse[list[ExamListSchema]])
 async def get_exams(db: Annotated[AsyncSession, Depends(get_db)]):
     exams = await list_exams(db)
     return SuccessResponse(success=True, errors=None, data=exams)

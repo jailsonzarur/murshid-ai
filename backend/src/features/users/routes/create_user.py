@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 @router.post(
-    "/",
+    "",
     operation_id="createUser",
     status_code=201,
     response_model=SuccessResponse[None],
