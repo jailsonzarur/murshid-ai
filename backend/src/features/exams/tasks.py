@@ -9,10 +9,10 @@ from uuid import UUID
 from celery.signals import worker_process_shutdown
 
 from src.core.celery import celery_app
-from src.database import AsyncSessionLocal, close_db
-from src.features.exams.agents import ExamProcessingState, OriginalDocumentState
-from src.features.exams.models import ExamModel, ExamStatus
-from src.features.exams.repository import get_exam_with_documents
+from src.database import close_db
+from src.features.exams.agents import ExamProcessingState
+from src.features.exams.models import ExamStatus
+from src.features.exams.services.exam_service import mark_exam_as_processing_and_get_documents, set_exam_status
 
 _worker_loop: asyncio.AbstractEventLoop | None = None
 
@@ -48,7 +48,7 @@ def _shutdown_worker_loop(**_: Any) -> None:
 
 async def _process_exam_task(exam_id: UUID) -> None:
     try:
-        original_docs = await _mark_exam_as_processing_and_get_documents(exam_id)
+        original_docs = await mark_exam_as_processing_and_get_documents(exam_id)
 
         from src.features.exams.agents import run_exam_processing_graph
 
@@ -65,41 +65,7 @@ async def _process_exam_task(exam_id: UUID) -> None:
             )
         )
 
-        await _set_exam_status(exam_id, ExamStatus.COMPLETED)
+        await set_exam_status(exam_id, ExamStatus.COMPLETED)
     except Exception:
-        await _set_exam_status(exam_id, ExamStatus.FAILED, error_log=traceback.format_exc())
+        await set_exam_status(exam_id, ExamStatus.FAILED, error_log=traceback.format_exc())
         raise
-
-
-async def _mark_exam_as_processing_and_get_documents(exam_id: UUID) -> list[OriginalDocumentState]:
-    async with AsyncSessionLocal() as db:
-        exam = await get_exam_with_documents(db, exam_id)
-
-        if exam is None:
-            raise ValueError(f"Exam not found: {exam_id}")
-
-        exam.status = ExamStatus.PROCESSING
-        exam.error_log = None
-        await db.commit()
-
-        return [
-            {
-                "file_url": document.file_url,
-                "mime_type": document.mime_type,
-                "original_name": document.original_name,
-                "page_order": document.page_order,
-            }
-            for document in sorted(exam.documents, key=lambda item: item.page_order)
-        ]
-
-
-async def _set_exam_status(exam_id: UUID, status: ExamStatus, *, error_log: str | None = None) -> None:
-    async with AsyncSessionLocal() as db:
-        exam = await db.get(ExamModel, exam_id)
-
-        if exam is None:
-            return
-
-        exam.status = status
-        exam.error_log = error_log
-        await db.commit()
