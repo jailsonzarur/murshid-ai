@@ -2077,23 +2077,82 @@
   align-items: center;
   background: rgba(255, 255, 255, 0.74);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 8px;
   display: flex;
   gap: 10px;
-  justify-content: space-between;
-  padding: 10px 12px;
+  min-height: 74px;
+  padding: 8px;
+  transition: border-color 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
 }
 
-.file-dropzone__item span {
+.file-dropzone__item.is-dragging {
+  border-color: rgba(157, 78, 221, 0.45);
+  box-shadow: 0 12px 28px rgba(17, 17, 17, 0.08);
+  opacity: 0.72;
+}
+
+.file-dropzone__preview {
+  align-items: center;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
   color: var(--muted-foreground);
+  cursor: pointer;
+  display: grid;
+  flex: 0 0 auto;
+  height: 56px;
+  overflow: hidden;
+  padding: 0;
+  place-items: center;
+  width: 44px;
+}
+
+.file-dropzone__preview img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.file-dropzone__order {
+  align-items: center;
+  background: var(--ink);
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 700;
+  height: 26px;
+  justify-content: center;
+  width: 26px;
+}
+
+.file-dropzone__item-text {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 2px;
+  min-width: 0;
+}
+
+.file-dropzone__item-text strong {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
   overflow-wrap: anywhere;
 }
 
-.file-dropzone__item button {
+.file-dropzone__item-text span {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.file-dropzone__item > button:not(.file-dropzone__preview) {
   align-items: center;
   background: var(--danger-soft);
   border: 1px solid rgba(180, 35, 24, 0.14);
-  border-radius: 10px;
+  border-radius: 8px;
   color: var(--danger);
   cursor: pointer;
   display: grid;
@@ -2101,6 +2160,102 @@
   height: 30px;
   place-items: center;
   width: 30px;
+}
+
+.file-dropzone__item > button:not(.file-dropzone__preview):disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.file-dropzone__item > button:not(.file-dropzone__preview):not(:last-child) {
+  background: var(--surface-soft);
+  border-color: var(--border);
+  color: var(--muted-foreground);
+}
+
+.file-preview-backdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.52);
+  display: grid;
+  inset: 0;
+  padding: 24px;
+  place-items: center;
+  position: fixed;
+  z-index: 120;
+}
+
+.file-preview-modal {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 30px 70px rgba(17, 17, 17, 0.24);
+  display: grid;
+  gap: 12px;
+  max-height: calc(100svh - 48px);
+  max-width: 980px;
+  overflow: hidden;
+  padding: 14px;
+  width: min(980px, 100%);
+}
+
+.file-preview-modal__heading {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.file-preview-modal__heading div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.file-preview-modal__heading strong {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.file-preview-modal__heading span {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.file-preview-modal__heading button {
+  align-items: center;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  display: grid;
+  flex: 0 0 auto;
+  height: 34px;
+  place-items: center;
+  width: 34px;
+}
+
+.file-preview-modal__body {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  max-height: calc(100svh - 150px);
+  min-height: 280px;
+  overflow: auto;
+  place-items: center;
+}
+
+.file-preview-modal__body img {
+  display: block;
+  height: auto;
+  max-width: 100%;
+}
+
+.file-preview-modal__body iframe {
+  border: 0;
+  height: min(760px, calc(100svh - 150px));
+  width: 100%;
 }
 
 .loading-state {
@@ -2723,6 +2878,16 @@
   .exam-viewer-panel,
   .login-card {
     padding: 18px;
+  }
+
+  .file-dropzone__item {
+    align-items: stretch;
+    display: grid;
+    grid-template-columns: 44px 26px minmax(0, 1fr) 30px 30px 30px;
+  }
+
+  .file-preview-backdrop {
+    padding: 14px;
   }
 
   .exams-table-wrap {

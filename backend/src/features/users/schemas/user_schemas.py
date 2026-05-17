@@ -9,12 +9,12 @@ from src.shared.enums.enums import UserRole
 
 
 class UserListSchema(BaseModel):
-    id: Annotated[UUID, Field(description="ID do usuario")]
-    name: Annotated[str, Field(description="Nome do usuario")]
-    email: Annotated[EmailStr, Field(description="Email do usuario")]
-    role: Annotated[UserRole, Field(description="Papel do usuario")]
-    created_at: Annotated[datetime, Field(description="Data de criacao")]
-    updated_at: Annotated[datetime, Field(description="Data de atualizacao")]
+    id: Annotated[UUID, Field(description="ID do usuário")]
+    name: Annotated[str, Field(description="Nome do usuário")]
+    email: Annotated[EmailStr, Field(description="E-mail do usuário")]
+    role: Annotated[UserRole, Field(description="Papel do usuário")]
+    created_at: Annotated[datetime, Field(description="Data de criação")]
+    updated_at: Annotated[datetime, Field(description="Data de atualização")]
 
     model_config = ConfigDict(from_attributes=True)
 

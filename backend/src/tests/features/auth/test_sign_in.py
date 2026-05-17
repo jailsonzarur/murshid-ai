@@ -24,7 +24,7 @@ def describe_POST_sign_in():
         )
 
         assert response.status_code == 400
-        assert "Email ou senha incorretos" in response.json()["errors"]
+        assert "E-mail ou senha incorretos." in response.json()["errors"]
 
     @pytest.mark.asyncio
     async def it_should_sign_in_with_uppercase_email(client: AsyncClient, test_user: dict):

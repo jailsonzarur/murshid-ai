@@ -31,7 +31,7 @@ export function TimeTracker() {
     <Card className="tasko-dark-card tasko-time-card">
       <div className="tasko-time-card__waves" aria-hidden="true" />
       <div className="tasko-dark-card__content">
-        <h2>Time Tracker</h2>
+        <h2>Controle de tempo</h2>
         <div className="tasko-time-card__value">
           {formatTime(hours)}:{formatTime(minutes)}:{formatTime(secs)}
         </div>

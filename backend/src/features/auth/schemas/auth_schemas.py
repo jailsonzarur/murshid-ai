@@ -8,15 +8,15 @@ from src.shared.enums.enums import UserRole
 
 def validate_password_strength(password: str) -> str:
     if len(password) < 8:
-        raise ValueError("A senha deve ter pelo menos 8 caracteres")
+        raise ValueError("A senha deve ter pelo menos 8 caracteres.")
     if len(password) > 128:
-        raise ValueError("A senha deve ter no maximo 128 caracteres")
+        raise ValueError("A senha deve ter no máximo 128 caracteres.")
     if not re.search(r"[A-Z]", password):
-        raise ValueError("A senha deve conter pelo menos uma letra maiuscula")
+        raise ValueError("A senha deve conter pelo menos uma letra maiúscula.")
     if not re.search(r"[a-z]", password):
-        raise ValueError("A senha deve conter pelo menos uma letra minuscula")
+        raise ValueError("A senha deve conter pelo menos uma letra minúscula.")
     if not re.search(r"\d", password):
-        raise ValueError("A senha deve conter pelo menos um numero")
+        raise ValueError("A senha deve conter pelo menos um número.")
     return password
 
 

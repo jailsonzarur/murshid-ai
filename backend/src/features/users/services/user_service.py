@@ -24,7 +24,7 @@ async def create_user(db: AsyncSession, data: CreateUserSchema) -> None:
     if await user_exists_by_email(db, data.email):
         raise HTTPException(
             status_code=409,
-            detail={"success": False, "errors": ["Um usuario com este email ja existe"], "data": None},
+            detail={"success": False, "errors": ["Um usuário com este e-mail já existe."], "data": None},
         )
 
     user = UserModel(name=data.name, email=data.email.lower(), password=hash_password(data.password), role=data.role)
@@ -50,14 +50,14 @@ async def update_user(db: AsyncSession, user_id: UUID, data: UpdateUserSchema) -
     if not user:
         raise HTTPException(
             status_code=404,
-            detail={"success": False, "errors": ["Usuario nao encontrado"], "data": None},
+            detail={"success": False, "errors": ["Usuário não encontrado."], "data": None},
         )
 
     if data.email is not None and data.email.lower() != user.email:
         if await user_exists_by_email(db, data.email, exclude_id=user_id):
             raise HTTPException(
                 status_code=409,
-                detail={"success": False, "errors": ["Usuario com este email ja existe"], "data": None},
+                detail={"success": False, "errors": ["Usuário com este e-mail já existe."], "data": None},
             )
         user.email = data.email.lower()
     if data.name is not None:
@@ -75,7 +75,7 @@ async def update_role(db: AsyncSession, user_id: UUID, data: UpdateUserRoleSchem
     if not user:
         raise HTTPException(
             status_code=404,
-            detail={"success": False, "errors": ["Usuario nao encontrado"], "data": None},
+            detail={"success": False, "errors": ["Usuário não encontrado."], "data": None},
         )
     user.role = data.role
     await db.commit()
@@ -85,14 +85,14 @@ async def delete_user(db: AsyncSession, user_id: UUID, current_user_id: UUID) ->
     if current_user_id == user_id:
         raise HTTPException(
             status_code=400,
-            detail={"success": False, "errors": ["Nao e possivel excluir a si mesmo"], "data": None},
+            detail={"success": False, "errors": ["Não é possível excluir a si mesmo."], "data": None},
         )
 
     user = await get_user_model_by_id(db, user_id)
     if not user:
         raise HTTPException(
             status_code=404,
-            detail={"success": False, "errors": ["Usuario nao encontrado"], "data": None},
+            detail={"success": False, "errors": ["Usuário não encontrado."], "data": None},
         )
 
     await db.delete(user)

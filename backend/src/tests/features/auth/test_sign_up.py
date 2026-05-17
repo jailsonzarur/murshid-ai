@@ -21,7 +21,7 @@ def describe_POST_sign_up():
         )
 
         assert response.status_code == 409
-        assert "Email ja cadastrado" in response.json()["errors"]
+        assert "E-mail já cadastrado." in response.json()["errors"]
 
     @pytest.mark.asyncio
     async def it_should_reject_invalid_email(client: AsyncClient):

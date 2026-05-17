@@ -16,6 +16,6 @@ export function showErrorToast(message: string, title = 'Erro') {
   showToast({ message, title, tone: 'error' })
 }
 
-export function showWarningToast(message: string, title = 'Atencao') {
+export function showWarningToast(message: string, title = 'Atenção') {
   showToast({ message, title, tone: 'warning' })
 }

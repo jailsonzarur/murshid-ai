@@ -177,7 +177,7 @@ class MinioBucketService:
             if error_code in {"NoSuchKey", "NoSuchBucket", "404"}:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail={"success": False, "errors": ["Arquivo nao encontrado"], "data": None},
+                    detail={"success": False, "errors": ["Arquivo não encontrado."], "data": None},
                 ) from error
 
             raise

@@ -11,6 +11,7 @@ import { Input } from '../components/ui/input'
 import { getAccessToken } from '../lib/auth'
 import { ApiError, deleteExam, getExams, uploadExam, type ExamListItem } from '../lib/api'
 import { navigateTo } from '../lib/navigation'
+import type { OrderedExamUploadFile } from '../types/exam-upload'
 
 type StatusFilter = 'ALL' | ExamListItem['status']
 
@@ -73,7 +74,7 @@ export function ExamsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [name, setName] = useState('')
   const [generalSubject, setGeneralSubject] = useState('')
-  const [files, setFiles] = useState<File[]>([])
+  const [files, setFiles] = useState<OrderedExamUploadFile[]>([])
   const [formErrors, setFormErrors] = useState<{
     files?: string
     name?: string
@@ -335,7 +336,10 @@ export function ExamsPage() {
                 <div>
                   <Badge tone="green">Upload</Badge>
                   <h2>Gerar prova</h2>
-                  <p>Envie PDF, JPG ou PNG para iniciar o processamento.</p>
+                  <p>
+                    Envie PDF, JPG ou PNG para iniciar o processamento. Para melhores resultados,
+                    envie apenas uma prova por geração e mantenha as páginas na ordem correta.
+                  </p>
                 </div>
                 <button aria-label="Fechar modal" onClick={closeModal} type="button">
                   <Icon name="x" size={16} />

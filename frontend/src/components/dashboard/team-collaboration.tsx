@@ -15,9 +15,9 @@ export function TeamCollaboration({ items }: { items: CollaborationItem[] }) {
   return (
     <Card className="tasko-card tasko-team-card">
       <div className="tasko-card__heading">
-        <h2>Team Collaboration</h2>
+        <h2>Colaboração da equipe</h2>
         <Button icon="plus" size="sm" variant="outline">
-          Add Member
+          Adicionar membro
         </Button>
       </div>
 
@@ -30,7 +30,7 @@ export function TeamCollaboration({ items }: { items: CollaborationItem[] }) {
             <div>
               <p>{item.name}</p>
               <span>
-                Working on <strong>{item.task}</strong>
+                Trabalhando em <strong>{item.task}</strong>
               </span>
             </div>
             <Badge tone={item.tone}>{item.status}</Badge>

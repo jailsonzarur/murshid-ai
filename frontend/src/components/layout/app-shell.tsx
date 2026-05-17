@@ -34,7 +34,7 @@ function createNavigationSections(activeItem: AppShellActiveItem, onLogout: () =
         {
           active: activeItem === 'dashboard',
           icon: 'home',
-          label: 'Dashboard',
+          label: 'Painel',
           onSelect: () => navigateTo('/dashboard'),
         },
         {
@@ -47,39 +47,39 @@ function createNavigationSections(activeItem: AppShellActiveItem, onLogout: () =
         {
           disabled: true,
           icon: 'calendar',
-          label: 'Calendar',
+          label: 'Calendário',
         },
         {
           active: activeItem === 'analytics',
           disabled: true,
           icon: 'chart',
-          label: 'Analytics',
+          label: 'Análises',
         },
         {
           active: activeItem === 'users',
           disabled: true,
           icon: 'users',
-          label: 'Team',
+          label: 'Equipe',
         },
       ],
     },
     {
-      label: 'General',
+      label: 'Geral',
       items: [
         {
           active: activeItem === 'settings',
           disabled: true,
           icon: 'settings',
-          label: 'Settings',
+          label: 'Configurações',
         },
         {
           disabled: true,
           icon: 'helpCircle',
-          label: 'Help',
+          label: 'Ajuda',
         },
         {
           icon: 'logOut',
-          label: 'Logout',
+          label: 'Sair',
           onSelect: onLogout,
         },
       ],

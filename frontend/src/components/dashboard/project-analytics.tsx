@@ -13,10 +13,10 @@ export function ProjectAnalytics({ data }: { data: AnalyticsPoint[] }) {
   return (
     <Card className="tasko-card tasko-analytics-card">
       <div className="tasko-card__heading">
-        <h2>Project Analytics</h2>
+        <h2>Análise de provas</h2>
         <div className="tasko-legend">
           <span />
-          Weekly Activity
+          Atividade semanal
         </div>
       </div>
 
@@ -33,11 +33,11 @@ export function ProjectAnalytics({ data }: { data: AnalyticsPoint[] }) {
 
       <div className="tasko-analytics-card__summary">
         <p>
-          <span>Average: </span>
+          <span>Média: </span>
           <strong>{average}%</strong>
         </p>
         <p>
-          <span>Peak: </span>
+          <span>Pico: </span>
           <strong>{maxValue}%</strong>
         </p>
       </div>

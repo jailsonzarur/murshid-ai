@@ -19,7 +19,7 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> dict
     if not user or not verify_password(password, user.password):
         raise HTTPException(
             status_code=400,
-            detail={"success": False, "errors": ["Email ou senha incorretos"], "data": None},
+            detail={"success": False, "errors": ["E-mail ou senha incorretos."], "data": None},
         )
 
     return {
@@ -49,7 +49,10 @@ async def register_user(db: AsyncSession, name: str, email: str, password: str) 
 
     existing = await get_user_model_by_email(db, email.lower())
     if existing:
-        raise HTTPException(status_code=409, detail={"success": False, "errors": ["Email ja cadastrado"], "data": None})
+        raise HTTPException(
+            status_code=409,
+            detail={"success": False, "errors": ["E-mail já cadastrado."], "data": None},
+        )
 
     await create_user_with_hashed_password(db, name, email.lower(), hash_password(password))
 
@@ -61,6 +64,6 @@ async def get_user_profile(db: AsyncSession, user_id: UUID) -> dict:
     if not user:
         raise HTTPException(
             status_code=404,
-            detail={"success": False, "errors": ["Usuario nao encontrado"], "data": None},
+            detail={"success": False, "errors": ["Usuário não encontrado."], "data": None},
         )
     return {"name": user.name, "email": user.email, "role": user.role}

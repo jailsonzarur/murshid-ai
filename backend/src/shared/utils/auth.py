@@ -60,13 +60,13 @@ def decode_refresh_token(token: str) -> dict[str, Any]:
     except (ExpiredSignatureError, InvalidTokenError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token invalido ou expirado",
+            detail="Refresh token inválido ou expirado.",
         )
 
     if payload.get("type") != "refresh" or payload.get("sub") is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token invalido ou expirado",
+            detail="Refresh token inválido ou expirado.",
         )
     return payload
 
@@ -82,9 +82,9 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             raise InvalidTokenError()
         return CurrentUser(id=UUID(str(user_id)), role=role)
     except ExpiredSignatureError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expirado")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expirado.")
     except (InvalidTokenError, ValueError):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token invalido")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido.")
 
 
 def get_user_from_request(request: Request) -> CurrentUser | None:

@@ -2,6 +2,7 @@ import { clearAuthSession, getAuthorizationHeader } from './auth'
 import { navigateTo } from './navigation'
 import { showErrorToast } from './toast'
 import type { Question } from '../types/exam'
+import type { OrderedExamUploadFile } from '../types/exam-upload'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8002'
 
@@ -203,7 +204,11 @@ export async function getExams() {
   return parseApiResponse<ExamListItem[]>(response)
 }
 
-export async function uploadExam(name: string, generalSubject: string, files: File[]) {
+export async function uploadExam(
+  name: string,
+  generalSubject: string,
+  files: OrderedExamUploadFile[],
+) {
   const authorization = getAuthorizationHeader()
 
   if (!authorization) {
@@ -218,8 +223,19 @@ export async function uploadExam(name: string, generalSubject: string, files: Fi
     formData.append('general_subject', generalSubject.trim())
   }
 
-  files.forEach((file) => {
-    formData.append('files', file)
+  formData.append(
+    'file_order',
+    JSON.stringify(
+      files.map((item, index) => ({
+        client_id: item.id,
+        file_name: item.file.name,
+        page_order: index + 1,
+      })),
+    ),
+  )
+
+  files.forEach((item) => {
+    formData.append('files', item.file, `${item.id}__${item.file.name}`)
   })
 
   const response = await fetchApi(`${API_BASE_URL}/exams/upload`, {

@@ -67,14 +67,20 @@ class PermissionMiddleware(BaseHTTPMiddleware):
         try:
             user = get_user_from_request(request)
         except ExpiredSignatureError:
-            return JSONResponse(status_code=401, content={"success": False, "errors": ["Token expirado"], "data": None})
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "errors": ["Token expirado."], "data": None},
+            )
         except (InvalidTokenError, ValueError):
-            return JSONResponse(status_code=401, content={"success": False, "errors": ["Token invalido"], "data": None})
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "errors": ["Token inválido."], "data": None},
+            )
 
         if not user:
             return JSONResponse(
                 status_code=401,
-                content={"success": False, "errors": ["Nao autenticado"], "data": None},
+                content={"success": False, "errors": ["Não autenticado."], "data": None},
             )
 
         if _is_guest_allowed_route(method, path):
@@ -85,7 +91,7 @@ class PermissionMiddleware(BaseHTTPMiddleware):
         if not db_user or db_user.role != UserRole.ADMIN:
             return JSONResponse(
                 status_code=403,
-                content={"success": False, "errors": ["Acesso restrito a administradores"], "data": None},
+                content={"success": False, "errors": ["Acesso restrito a administradores."], "data": None},
             )
 
         return await call_next(request)

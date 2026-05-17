@@ -27,5 +27,5 @@ async def delete_exam_route(
     return SuccessResponse(
         success=True,
         errors=None,
-        data=ExamDeleteResponse(exam_id=exam_id, message="Prova excluida com sucesso"),
+        data=ExamDeleteResponse(exam_id=exam_id, message="Prova excluída com sucesso."),
     )

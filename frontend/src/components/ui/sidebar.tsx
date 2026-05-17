@@ -26,7 +26,7 @@ export type SidebarProps = HTMLAttributes<HTMLElement> & {
 }
 
 const defaultSidebarItems: SidebarItem[] = [
-  { label: 'Dashboard', icon: 'home', active: true },
+  { label: 'Painel', icon: 'home', active: true },
   { label: 'Provas', icon: 'layers' },
   { label: 'Análises', icon: 'chart' },
   { label: 'Usuários', icon: 'users' },

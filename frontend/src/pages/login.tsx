@@ -25,7 +25,7 @@ export function LoginPage() {
     event.preventDefault()
 
     const nextFieldErrors = {
-      email: !email.trim() ? 'Informe o email.' : undefined,
+      email: !email.trim() ? 'Informe o e-mail.' : undefined,
       password: !password.trim() ? 'Informe a senha.' : undefined,
     }
 
@@ -59,7 +59,7 @@ export function LoginPage() {
       }
 
       setFeedback({
-        message: 'Login realizado. Redirecionando para o dashboard...',
+        message: 'Login realizado. Redirecionando para o painel...',
         tone: 'success',
       })
 
@@ -91,7 +91,7 @@ export function LoginPage() {
                 autoComplete="email"
                 error={fieldErrors.email}
                 icon="mail"
-                label="Email"
+                label="E-mail"
                 onChange={(event) => {
                   setEmail(event.target.value)
                   setFieldErrors((current) => ({ ...current, email: undefined }))

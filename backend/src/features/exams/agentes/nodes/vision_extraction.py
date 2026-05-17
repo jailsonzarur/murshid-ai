@@ -22,11 +22,12 @@ async def vision_extraction_node(state: ExamProcessingState) -> ExamProcessingSt
     from langchain_core.messages import HumanMessage
 
     content: list[dict[str, Any]] = [{"type": "text", "text": VISION_EXTRACTION_PROMPT}]
+    annotated_pages_base64 = state.get("annotated_pages_base64", [])
     question_boundary_hints = state.get("question_boundary_hints", [])
     if question_boundary_hints:
         content.append({"type": "text", "text": format_question_boundary_hints(question_boundary_hints)})
 
-    for page_index, page_base64 in enumerate(state.get("annotated_pages_base64", []), start=1):
+    for page_index, page_base64 in enumerate(annotated_pages_base64, start=1):
         content.append({"type": "text", "text": f"Annotated page {page_index}"})
         content.append(
             {

@@ -1,10 +1,10 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, Depends, File, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
-from src.features.exams.schemas.exam_schemas import ExamUploadResponse
+from src.features.exams.schemas.exam_schemas import ExamUploadFormSchema, ExamUploadResponse
 from src.features.exams.services.exam_service import create_exam_and_dispatch_task
 from src.shared.schemas.http import ErrorResponse, SuccessResponse
 
@@ -19,12 +19,11 @@ router = APIRouter()
     responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
 )
 async def upload_exam(
-    name: Annotated[str, Form(...)],
+    payload: Annotated[ExamUploadFormSchema, Depends(ExamUploadFormSchema.as_form)],
     files: Annotated[list[UploadFile], File(...)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    general_subject: Annotated[str | None, Form()] = None,
 ):
-    exam = await create_exam_and_dispatch_task(db, name, general_subject, files)
+    exam = await create_exam_and_dispatch_task(db, payload, files)
 
     return SuccessResponse(
         success=True,

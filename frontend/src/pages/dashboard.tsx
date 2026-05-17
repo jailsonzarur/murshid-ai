@@ -17,67 +17,67 @@ import { navigateTo } from '../lib/navigation'
 const dashboardStats = [
   {
     icon: 'fileText' as const,
-    label: 'Total Projects',
-    subtitle: 'Increased from last month',
+    label: 'Total de provas',
+    subtitle: 'Aumento em relação ao mês passado.',
     tone: 'primary' as const,
     value: '128',
   },
   {
     icon: 'checkCircle' as const,
-    label: 'Ended Projects',
-    subtitle: 'Increased from last month',
+    label: 'Provas concluídas',
+    subtitle: 'Aumento em relação ao mês passado.',
     value: '99,2%',
   },
   {
     icon: 'clock' as const,
-    label: 'Running Projects',
-    subtitle: 'Increased from last month',
+    label: 'Provas em processamento',
+    subtitle: 'Aumento em relação ao mês passado.',
     value: '06',
   },
   {
     icon: 'shield' as const,
-    label: 'Pending Project',
-    subtitle: 'On Discuss',
+    label: 'Provas pendentes',
+    subtitle: 'Em análise.',
     value: '2',
   },
 ]
 
 const weeklyActivity = [
-  { day: 'S', label: 'Sunday', value: 45 },
-  { day: 'M', label: 'Monday', value: 75 },
-  { day: 'T', label: 'Tuesday', value: 74 },
-  { day: 'W', label: 'Wednesday', value: 92 },
-  { day: 'T', label: 'Thursday', value: 35 },
-  { day: 'F', label: 'Friday', value: 60 },
-  { day: 'S', label: 'Saturday', value: 50 },
+  { day: 'D', label: 'Domingo', value: 45 },
+  { day: 'S', label: 'Segunda-feira', value: 75 },
+  { day: 'T', label: 'Terça-feira', value: 74 },
+  { day: 'Q', label: 'Quarta-feira', value: 92 },
+  { day: 'Q', label: 'Quinta-feira', value: 35 },
+  { day: 'S', label: 'Sexta-feira', value: 60 },
+  { day: 'S', label: 'Sábado', value: 50 },
 ]
 
 const collaborationItems = [
   {
     initials: 'CM',
     name: 'Clínica Médica',
-    status: 'Completed',
+    status: 'Concluída',
     task: 'Residência Clínica Médica 2026',
     tone: 'green' as const,
   },
   {
     initials: 'CB',
     name: 'Cardiologia B',
-    status: 'In Progress',
+    status: 'Em andamento',
     task: 'Simulado Cardiologia - Turma B',
     tone: 'orange' as const,
   },
   {
     initials: 'IF',
     name: 'Infectologia',
-    status: 'Pending',
+    status: 'Pendente',
     task: 'Banco de questões Infectologia',
     tone: 'destructive' as const,
   },
   {
     initials: 'RX',
     name: 'Revisão OCR',
-    status: 'In Progress',
+    status: 'Em andamento',
     task: 'Validação de alternativas',
     tone: 'orange' as const,
   },
@@ -147,20 +147,20 @@ export function DashboardPage() {
     <AppShell
       actions={
         <>
-          <Button onClick={() => navigateTo('/exams')}>+ Add Project</Button>
+          <Button onClick={() => navigateTo('/exams')}>+ Gerar prova</Button>
           <Button onClick={() => navigateTo('/exams')} variant="outline">
-            Import Data
+            Importar dados
           </Button>
         </>
       }
       activeItem="dashboard"
       description={
         isLoadingProfile
-          ? 'Loading your workspace.'
-          : `Plan, prioritize, and accomplish your OCR tasks with ease.${profile?.name ? ` Welcome, ${profile.name}.` : ''}`
+          ? 'Carregando seu ambiente de trabalho.'
+          : `Planeje, priorize e acompanhe suas tarefas de OCR com facilidade.${profile?.name ? ` Bem-vindo, ${profile.name}.` : ''}`
       }
-      searchPlaceholder="Search task"
-      title="Dashboard"
+      searchPlaceholder="Buscar tarefa"
+      title="Painel"
       userEmail={profile?.email}
       userName={profile?.name}
     >

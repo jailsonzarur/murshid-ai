@@ -12,9 +12,9 @@ export function ProjectList({ items }: { items: ProjectListItem[] }) {
   return (
     <Card className="tasko-card tasko-project-list">
       <div className="tasko-card__heading">
-        <h2>Project</h2>
+        <h2>Provas</h2>
         <Button icon="plus" size="sm" variant="outline">
-          New
+          Nova
         </Button>
       </div>
 
@@ -26,7 +26,7 @@ export function ProjectList({ items }: { items: ProjectListItem[] }) {
             </span>
             <div>
               <p>{item.name}</p>
-              <span>Due date: {item.date}</span>
+              <span>Prazo: {item.date}</span>
             </div>
           </div>
         ))}

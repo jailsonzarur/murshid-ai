@@ -10,7 +10,12 @@ from sqlalchemy.orm import selectinload
 from src.database import AsyncSessionLocal
 from src.features.exams.agentes.state import OriginalDocumentState
 from src.features.exams.models import ExamDocumentModel, ExamModel, ExamStatus
-from src.features.exams.schemas.exam_schemas import ExamListSchema, ExamViewerOptionSchema, ExamViewerQuestionSchema
+from src.features.exams.schemas.exam_schemas import (
+    ExamListSchema,
+    ExamUploadFormSchema,
+    ExamViewerOptionSchema,
+    ExamViewerQuestionSchema,
+)
 from src.features.files.services.bucket_service import get_bucket_service
 from src.features.questions.models import QuestionModel
 
@@ -40,7 +45,7 @@ async def list_exam_questions(db: AsyncSession, exam_id: UUID) -> list[ExamViewe
     if exam is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail={"success": False, "errors": ["Prova nao encontrada"], "data": None},
+            detail={"success": False, "errors": ["Prova não encontrada."], "data": None},
         )
 
     bucket_service = get_bucket_service()
@@ -72,23 +77,38 @@ def _get_viewer_image_url(bucket_service, image_url: str | None) -> str | None:
 
 async def create_exam_and_dispatch_task(
     db: AsyncSession,
-    name: str,
-    general_subject: str | None,
+    payload: ExamUploadFormSchema,
     files: Sequence[UploadFile],
 ) -> ExamModel:
     if not files:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"success": False, "errors": ["Envie pelo menos um arquivo"], "data": None},
+            detail={"success": False, "errors": ["Envie pelo menos um arquivo."], "data": None},
         )
 
     bucket_service = get_bucket_service()
     uploaded_file_urls: list[str] = []
+    ordered_files: list[tuple[int, UploadFile, str]] = []
+
+    order_by_client_id = {item.client_id: item for item in payload.file_order}
+
+    for file in files:
+        client_id, _, uploaded_name = (file.filename or "").partition("__")
+        ordered_item = order_by_client_id[client_id]
+        ordered_files.append(
+            (
+                ordered_item.page_order,
+                file,
+                ordered_item.file_name or uploaded_name or f"exam-file-{ordered_item.page_order}",
+            )
+        )
+
+    ordered_files.sort(key=lambda item: item[0])
 
     try:
-        exam = await create_exam_model(db, ExamModel(name=name, general_subject=general_subject))
+        exam = await create_exam_model(db, ExamModel(name=payload.name, general_subject=payload.general_subject))
 
-        for index, file in enumerate(files, start=1):
+        for page_order, file, original_name in ordered_files:
             mime_type = file.content_type
 
             if mime_type not in ALLOWED_EXAM_MIME_TYPES:
@@ -96,7 +116,7 @@ async def create_exam_and_dispatch_task(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail={
                         "success": False,
-                        "errors": [f"Tipo de arquivo invalido: {mime_type or 'desconhecido'}"],
+                        "errors": [f"Tipo de arquivo inválido: {mime_type or 'desconhecido'}."],
                         "data": None,
                     },
                 )
@@ -105,12 +125,12 @@ async def create_exam_and_dispatch_task(
             if not content:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail={"success": False, "errors": [f"Arquivo vazio: {file.filename}"], "data": None},
+                    detail={"success": False, "errors": [f"Arquivo vazio: {original_name}"], "data": None},
                 )
 
             uploaded = bucket_service.upload(
                 content,
-                file.filename or f"exam-file-{index}",
+                original_name,
                 folder=f"exams/{exam.id}",
                 content_type=mime_type,
             )
@@ -121,9 +141,9 @@ async def create_exam_and_dispatch_task(
                 ExamDocumentModel(
                     exam_id=exam.id,
                     file_url=uploaded.file_url,
-                    original_name=file.filename or uploaded.key,
+                    original_name=original_name,
                     mime_type=mime_type,
-                    page_order=index,
+                    page_order=page_order,
                 ),
             )
 
@@ -156,7 +176,7 @@ async def delete_exam(db: AsyncSession, exam_id: UUID) -> None:
     if exam is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail={"success": False, "errors": ["Prova nao encontrada"], "data": None},
+            detail={"success": False, "errors": ["Prova não encontrada."], "data": None},
         )
 
     bucket_urls = _get_exam_bucket_urls(exam)

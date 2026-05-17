@@ -20,7 +20,7 @@ export function SelectBox({
   className,
   error,
   hint,
-  label = 'Select',
+  label = 'Selecionar',
   options,
   ...props
 }: SelectBoxProps) {

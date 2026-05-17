@@ -6,7 +6,7 @@ export function ProjectProgress({ progress = 41 }: { progress?: number }) {
 
   return (
     <Card className="tasko-card tasko-progress-card">
-      <h2>Project Progress</h2>
+      <h2>Progresso das provas</h2>
       <div className="tasko-progress-card__chart">
         <div className="tasko-progress-card__pattern" />
         <svg viewBox="0 0 160 160" aria-hidden="true">
@@ -21,13 +21,13 @@ export function ProjectProgress({ progress = 41 }: { progress?: number }) {
         </svg>
         <div>
           <strong>{progress}%</strong>
-          <span>Project Ended</span>
+          <span>Prova concluída</span>
         </div>
       </div>
       <div className="tasko-progress-card__legend">
-        <span><i />Completed</span>
-        <span><i />In Progress</span>
-        <span><i />Pending</span>
+        <span><i />Concluída</span>
+        <span><i />Em andamento</span>
+        <span><i />Pendente</span>
       </div>
     </Card>
   )
