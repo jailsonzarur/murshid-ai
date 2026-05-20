@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.features.exams.models import ExamModel, ExamStatus
-from src.features.files.services.bucket_service import get_bucket_service
+from src.features.files.services.bucket_service import MinioBucketService, get_bucket_service
 from src.features.questions.models import QuestionModel, QuestionType
 from src.features.resolutions.models import (
     ExamResolutionMode,
@@ -136,7 +136,11 @@ async def get_resolution_detail(
             detail={"success": False, "errors": ["Resolução não encontrada."], "data": None},
         )
 
-    bucket_service = get_bucket_service()
+    needs_bucket_service = any(
+        question.image_url and not question.image_url.startswith("data:")
+        for question in resolution.exam.questions
+    )
+    bucket_service = get_bucket_service() if needs_bucket_service else None
     responses_by_question_id = {response.question_id: response for response in resolution.responses}
     questions = [
         ResolutionQuestionDetailSchema(
@@ -545,11 +549,14 @@ def _serialize_response(response: QuestionResponseModel | None) -> QuestionRespo
     )
 
 
-def _get_viewer_image_url(bucket_service, image_url: str | None) -> str | None:
+def _get_viewer_image_url(bucket_service: MinioBucketService | None, image_url: str | None) -> str | None:
     if not image_url:
         return None
 
     if image_url.startswith("data:"):
+        return image_url
+
+    if bucket_service is None:
         return image_url
 
     return bucket_service.get_presigned_url(image_url)
