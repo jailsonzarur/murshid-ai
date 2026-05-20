@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import overload
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -326,9 +327,10 @@ async def submit_resolution(
     if resolution.mode == ExamResolutionMode.STUDY:
         question_count = len(resolution.exam.questions)
         total_score = sum(response.evaluations[0].score for response in resolution.responses if response.evaluations)
-        resolution.score = total_score / question_count if question_count else 0
+        resolution_score = total_score / question_count if question_count else 0
+        resolution.score = resolution_score
         resolution.result = (
-            ExamResolutionResult.PASSED if resolution.score >= PASSING_SCORE else ExamResolutionResult.FAILED
+            ExamResolutionResult.PASSED if resolution_score >= PASSING_SCORE else ExamResolutionResult.FAILED
         )
         resolution.status = ExamResolutionStatus.GRADED
         resolution.graded_at = now
@@ -512,6 +514,14 @@ def _invalid_response(message: str) -> HTTPException:
         status_code=status.HTTP_400_BAD_REQUEST,
         detail={"success": False, "errors": [message], "data": None},
     )
+
+
+@overload
+def _serialize_response(response: QuestionResponseModel) -> QuestionResponseSchema: ...
+
+
+@overload
+def _serialize_response(response: None) -> None: ...
 
 
 def _serialize_response(response: QuestionResponseModel | None) -> QuestionResponseSchema | None:

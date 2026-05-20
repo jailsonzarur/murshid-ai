@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any, cast
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -134,7 +135,7 @@ async def enqueue_resolution_evaluation(
 
     from src.features.resolutions.tasks import evaluate_resolution_task
 
-    task = evaluate_resolution_task.delay(str(resolution.id), str(user_id))
+    task = cast(Any, evaluate_resolution_task).delay(str(resolution.id), str(user_id))
     return str(task.id), ResolutionSummarySchema.model_validate(resolution)
 
 
@@ -177,13 +178,15 @@ async def evaluate_resolution_responses(
             total_score += output.score
 
         question_count = len(resolution.exam.questions)
-        resolution.score = total_score / question_count
+        resolution_score = total_score / question_count
+        resolution.score = resolution_score
         resolution.result = (
-            ExamResolutionResult.PASSED if resolution.score >= PASSING_SCORE else ExamResolutionResult.FAILED
+            ExamResolutionResult.PASSED if resolution_score >= PASSING_SCORE else ExamResolutionResult.FAILED
         )
         resolution.status = ExamResolutionStatus.GRADED
-        resolution.graded_at = datetime.now(UTC)
-        resolution.updated_at = resolution.graded_at
+        graded_at = datetime.now(UTC)
+        resolution.graded_at = graded_at
+        resolution.updated_at = graded_at
         await db.commit()
         await db.refresh(resolution)
         return ResolutionSummarySchema.model_validate(resolution)
