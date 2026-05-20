@@ -6,7 +6,7 @@ import { Icon } from './icon'
 export type TopbarProps = HTMLAttributes<HTMLDivElement> & {
   actions?: ReactNode
   description?: string
-  onLogout?: () => void
+  onLogout?: () => void | Promise<void>
   onMenuClick?: () => void
   searchPlaceholder?: string
   title?: string
@@ -55,9 +55,9 @@ export function Topbar({
     }
   }, [])
 
-  function handleLogoutClick() {
+  async function handleLogoutClick() {
     setIsUserMenuOpen(false)
-    onLogout?.()
+    await onLogout?.()
   }
 
   return (

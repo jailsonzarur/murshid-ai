@@ -32,6 +32,8 @@ async def replace_exam_questions_from_extraction(
                     statement=question.statement,
                     image_url=image_urls_by_exam_order.get(question.exam_order),
                     justification=None,
+                    explanation=question.explanation,
+                    expected_answer=question.expected_answer,
                     exam_order=question.exam_order,
                 )
 

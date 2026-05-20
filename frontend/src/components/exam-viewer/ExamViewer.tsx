@@ -19,6 +19,10 @@ function hasAnswer(answer: QuestionAnswer | undefined) {
     return answer.trim().length > 0
   }
 
+  if (Array.isArray(answer)) {
+    return answer.length > 0
+  }
+
   return Object.values(answer).some((value) => value.trim().length > 0)
 }
 
@@ -76,7 +80,7 @@ export function ExamViewer({ questions }: ExamViewerProps) {
           <p className="progress-indicator">
             Questão {currentIndex + 1} de {questions.length}
           </p>
-          <h2>{currentQuestion.type === 'OBJECTIVE' ? 'Questão objetiva' : 'Questão discursiva'}</h2>
+          <h2>{currentQuestion.type !== 'SUBJECTIVE' ? 'Questão objetiva' : 'Questão discursiva'}</h2>
         </div>
         <div className="answered-pill">
           <Icon name="checkCircle" size={15} />

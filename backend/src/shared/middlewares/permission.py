@@ -23,13 +23,23 @@ GUEST_ALLOWED_ROUTES = {
     ("GET", "/auth/profile"),
     ("GET", "/exams"),
     ("GET", "/exams/{exam_id}/questions"),
+    ("GET", "/exams/{exam_id}/resolutions"),
+    ("GET", "/exams/{exam_id}/resolutions/active"),
     ("GET", "/users"),
     ("POST", "/users"),
     ("PUT", "/users/{user_id}"),
     ("PATCH", "/users/{user_id}/role"),
     ("DELETE", "/users/{user_id}"),
     ("POST", "/exams/upload"),
+    ("POST", "/exams/{exam_id}/resolutions"),
     ("DELETE", "/exams/{exam_id}"),
+    ("GET", "/resolutions/{resolution_id}"),
+    ("PUT", "/resolutions/{resolution_id}/questions/{question_id}/response"),
+    ("POST", "/resolutions/{resolution_id}/questions/{question_id}/evaluate"),
+    ("POST", "/resolutions/{resolution_id}/evaluate"),
+    ("POST", "/resolutions/{resolution_id}/pause"),
+    ("POST", "/resolutions/{resolution_id}/resume"),
+    ("POST", "/resolutions/{resolution_id}/submit"),
 }
 
 

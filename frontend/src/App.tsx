@@ -8,6 +8,7 @@ import { DashboardPage } from './pages/dashboard'
 import { ExamViewerPage } from './pages/exam-viewer'
 import { ExamsPage } from './pages/exams'
 import { LoginPage } from './pages/login'
+import { ResolutionViewerPage } from './pages/resolution-viewer'
 
 const routes = {
   '/': LoginPage,
@@ -28,7 +29,11 @@ function normalizePathname(pathname: string) {
 
 function isProtectedPath(pathname: string) {
   const normalizedPathname = normalizePathname(pathname)
-  return protectedRoutes.has(normalizedPathname) || /^\/exams\/[^/]+$/.test(normalizedPathname)
+  return (
+    protectedRoutes.has(normalizedPathname) ||
+    /^\/exams\/[^/]+$/.test(normalizedPathname) ||
+    /^\/resolutions\/[^/]+$/.test(normalizedPathname)
+  )
 }
 
 function resolvePath(pathname: string) {
@@ -71,9 +76,12 @@ function App() {
     }
   }, [])
 
-  const Page = /^\/exams\/[^/]+$/.test(normalizePathname(pathname))
-    ? ExamViewerPage
-    : routes[pathname as keyof typeof routes] ?? LoginPage
+  const normalizedPathname = normalizePathname(pathname)
+  const Page = /^\/resolutions\/[^/]+$/.test(normalizedPathname)
+    ? ResolutionViewerPage
+    : /^\/exams\/[^/]+$/.test(normalizedPathname)
+      ? ExamViewerPage
+      : routes[pathname as keyof typeof routes] ?? LoginPage
 
   return (
     <>

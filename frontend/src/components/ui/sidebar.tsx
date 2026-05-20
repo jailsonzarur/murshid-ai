@@ -10,7 +10,7 @@ export type SidebarItem = {
   disabled?: boolean
   icon: IconName
   label: string
-  onSelect?: () => void
+  onSelect?: () => void | Promise<void>
 }
 
 export type SidebarSection = {

@@ -15,7 +15,7 @@ celery_app = Celery(
     "api_v2",
     broker=broker_url,
     backend=result_backend,
-    include=["src.features.exams.tasks"],
+    include=["src.features.exams.tasks", "src.features.resolutions.tasks"],
 )
 
 celery_app.conf.update(

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import cast
 
 from src.features.exams.agentes.nodes import (
+    answer_key_inference_node,
     process_layout_node,
     save_results_node,
     text_structuring_node,
@@ -18,12 +19,14 @@ def build_exam_processing_graph():
     graph.add_node("process_layout_node", process_layout_node)
     graph.add_node("vision_extraction_node", vision_extraction_node)
     graph.add_node("text_structuring_node", text_structuring_node)
+    graph.add_node("answer_key_inference_node", answer_key_inference_node)
     graph.add_node("save_results_node", save_results_node)
 
     graph.add_edge(START, "process_layout_node")
     graph.add_edge("process_layout_node", "vision_extraction_node")
     graph.add_edge("vision_extraction_node", "text_structuring_node")
-    graph.add_edge("text_structuring_node", "save_results_node")
+    graph.add_edge("text_structuring_node", "answer_key_inference_node")
+    graph.add_edge("answer_key_inference_node", "save_results_node")
     graph.add_edge("save_results_node", END)
 
     return graph.compile()

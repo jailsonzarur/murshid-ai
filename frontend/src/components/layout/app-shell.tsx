@@ -20,13 +20,18 @@ export type AppShellProps = {
   children: ReactNode
   contentClassName?: string
   description: string
+  onBeforeLeave?: () => void | Promise<void>
   searchPlaceholder?: string
   title: string
   userEmail?: string
   userName?: string
 }
 
-function createNavigationSections(activeItem: AppShellActiveItem, onLogout: () => void): SidebarSection[] {
+function createNavigationSections(
+  activeItem: AppShellActiveItem,
+  onNavigate: (path: string) => Promise<void>,
+  onLogout: () => Promise<void>,
+): SidebarSection[] {
   return [
     {
       label: 'Menu',
@@ -35,14 +40,14 @@ function createNavigationSections(activeItem: AppShellActiveItem, onLogout: () =
           active: activeItem === 'dashboard',
           icon: 'home',
           label: 'Painel',
-          onSelect: () => navigateTo('/dashboard'),
+          onSelect: () => onNavigate('/dashboard'),
         },
         {
           active: activeItem === 'exams',
           badge: 124,
           icon: 'layers',
           label: 'Provas',
-          onSelect: () => navigateTo('/exams'),
+          onSelect: () => onNavigate('/exams'),
         },
         {
           disabled: true,
@@ -93,6 +98,7 @@ export function AppShell({
   children,
   contentClassName,
   description,
+  onBeforeLeave,
   searchPlaceholder,
   title,
   userEmail,
@@ -102,7 +108,13 @@ export function AppShell({
   const resolvedUserName = userName ?? profile?.name ?? 'Usuário'
   const resolvedUserEmail = userEmail ?? profile?.email ?? 'Sessão ativa'
 
-  function handleLogout() {
+  async function handleNavigate(path: string) {
+    await onBeforeLeave?.()
+    navigateTo(path)
+  }
+
+  async function handleLogout() {
+    await onBeforeLeave?.()
     clearAuthSession()
     navigateTo('/login', { replace: true })
   }
@@ -112,7 +124,7 @@ export function AppShell({
       <Sidebar
         brandLabel="IAsmim"
         brandSubtitle="OCR médico"
-        sections={createNavigationSections(activeItem, handleLogout)}
+        sections={createNavigationSections(activeItem, handleNavigate, handleLogout)}
       />
 
       <section className="app-main">

@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 
 
 class QuestionType(enum.StrEnum):
-    OBJECTIVE = "OBJECTIVE"
+    OBJECTIVE_SINGLE = "OBJECTIVE_SINGLE"
+    OBJECTIVE_MULTI = "OBJECTIVE_MULTI"
     SUBJECTIVE = "SUBJECTIVE"
 
 
@@ -34,6 +35,8 @@ class QuestionModel(Base):
     statement: Mapped[str] = mapped_column(Text, nullable=False)
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     justification: Mapped[str | None] = mapped_column(Text, nullable=True)
+    explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expected_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
     exam_order: Mapped[int] = mapped_column(Integer, nullable=False)
 
     exam: Mapped[ExamModel] = relationship("ExamModel", back_populates="questions")

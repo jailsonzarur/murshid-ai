@@ -1,35 +1,91 @@
-import type { Question, QuestionAnswer } from '../../types/exam'
+import ReactMarkdown from 'react-markdown'
+
+import type { Question, QuestionAnswer, QuestionResponseEvaluation } from '../../types/exam'
 
 type QuestionCardProps = {
   currentAnswer?: QuestionAnswer
+  evaluation?: QuestionResponseEvaluation | null
+  isReadOnly?: boolean
   onAnswerChange: (answer: QuestionAnswer) => void
   question: Question
+  showEvaluation?: boolean
 }
 
 function getMultiItemAnswers(currentAnswer?: QuestionAnswer) {
-  if (!currentAnswer || typeof currentAnswer === 'string') {
+  if (!currentAnswer || typeof currentAnswer === 'string' || Array.isArray(currentAnswer)) {
     return {}
   }
 
   return currentAnswer
 }
 
-export function QuestionCard({ currentAnswer, onAnswerChange, question }: QuestionCardProps) {
-  const isObjective = question.type === 'OBJECTIVE'
+function getObjectiveAnswers(currentAnswer?: QuestionAnswer) {
+  if (Array.isArray(currentAnswer)) {
+    return currentAnswer
+  }
+
+  if (typeof currentAnswer === 'string' && currentAnswer) {
+    return [currentAnswer]
+  }
+
+  return []
+}
+
+export function QuestionCard({
+  currentAnswer,
+  evaluation,
+  isReadOnly = false,
+  onAnswerChange,
+  question,
+  showEvaluation = false,
+}: QuestionCardProps) {
+  const isObjective = question.type !== 'SUBJECTIVE'
+  const isObjectiveMulti = question.type === 'OBJECTIVE_MULTI'
   const hasOptions = question.options.length > 0
   const multiItemAnswers = getMultiItemAnswers(currentAnswer)
+  const objectiveAnswers = getObjectiveAnswers(currentAnswer)
+  const shouldShowScore = question.type === 'SUBJECTIVE' || question.type === 'OBJECTIVE_MULTI'
+  const isLowScore = evaluation ? evaluation.score < 0.5 : false
 
   function handleMultiItemAnswerChange(optionId: string, answer: string) {
+    if (isReadOnly) {
+      return
+    }
+
     onAnswerChange({
       ...multiItemAnswers,
       [optionId]: answer,
     })
   }
 
+  function handleObjectiveAnswerChange(optionId: string, checked: boolean) {
+    if (isReadOnly) {
+      return
+    }
+
+    if (!isObjectiveMulti) {
+      onAnswerChange(optionId)
+      return
+    }
+
+    if (checked) {
+      onAnswerChange([...objectiveAnswers, optionId])
+      return
+    }
+
+    onAnswerChange(objectiveAnswers.filter((currentOptionId) => currentOptionId !== optionId))
+  }
+
   return (
     <article className="question-card">
       <header className="question-header">
-        <span>{question.type === 'OBJECTIVE' ? 'Múltipla escolha' : 'Resposta aberta'}</span>
+        <span>
+          {isObjectiveMulti
+            ? 'Múltipla seleção'
+            : isObjective
+              ? 'Múltipla escolha'
+              : 'Resposta aberta'}
+        </span>
         <h3 className="question-statement">{question.statement}</h3>
       </header>
 
@@ -40,15 +96,18 @@ export function QuestionCard({ currentAnswer, onAnswerChange, question }: Questi
       <section className="question-interaction" aria-label="Área de resposta">
         {isObjective && hasOptions ? (
           <fieldset className="answer-options">
-            <legend className="answer-options-title">Selecione uma resposta</legend>
+            <legend className="answer-options-title">
+              {isObjectiveMulti ? 'Selecione uma ou mais respostas' : 'Selecione uma resposta'}
+            </legend>
             {question.options.map((option) => (
               <label className="option-row" key={option.id}>
                 <input
-                  checked={currentAnswer === option.id}
+                  checked={objectiveAnswers.includes(option.id)}
                   className="option-radio"
                   name={`question-${question.id}`}
-                  onChange={() => onAnswerChange(option.id)}
-                  type="radio"
+                  disabled={isReadOnly}
+                  onChange={(event) => handleObjectiveAnswerChange(option.id, event.target.checked)}
+                  type={isObjectiveMulti ? 'checkbox' : 'radio'}
                   value={option.id}
                 />
                 <span className="option-content">
@@ -65,6 +124,7 @@ export function QuestionCard({ currentAnswer, onAnswerChange, question }: Questi
             <span className="essay-answer-label">Sua resposta</span>
             <textarea
               className="essay-answer-textarea"
+              disabled={isReadOnly}
               onChange={(event) => onAnswerChange(event.target.value)}
               rows={8}
               value={typeof currentAnswer === 'string' ? currentAnswer : ''}
@@ -82,6 +142,7 @@ export function QuestionCard({ currentAnswer, onAnswerChange, question }: Questi
                 </span>
                 <input
                   className="multi-item-input"
+                  disabled={isReadOnly}
                   onChange={(event) => handleMultiItemAnswerChange(option.id, event.target.value)}
                   type="text"
                   value={multiItemAnswers[option.id] ?? ''}
@@ -91,6 +152,25 @@ export function QuestionCard({ currentAnswer, onAnswerChange, question }: Questi
           </div>
         ) : null}
       </section>
+
+      {showEvaluation && evaluation ? (
+        <section
+          className={`question-evaluation${isLowScore ? ' question-evaluation--negative' : ''}`}
+          aria-label="Correção da questão"
+        >
+          {shouldShowScore ? (
+            <div className="question-evaluation__score">
+              <span>Score</span>
+              <strong>{Math.round(evaluation.score * 100)}%</strong>
+            </div>
+          ) : null}
+          {evaluation.feedback ? (
+            <div className="question-evaluation__feedback">
+              <ReactMarkdown>{evaluation.feedback}</ReactMarkdown>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
     </article>
   )
 }

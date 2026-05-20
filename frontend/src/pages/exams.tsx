@@ -9,8 +9,18 @@ import { FileDropzone } from '../components/ui/file-dropzone'
 import { Icon } from '../components/ui/icon'
 import { Input } from '../components/ui/input'
 import { getAccessToken } from '../lib/auth'
-import { ApiError, deleteExam, getExams, uploadExam, type ExamListItem } from '../lib/api'
+import {
+  ApiError,
+  createExamResolution,
+  deleteExam,
+  getActiveExamResolution,
+  getExamResolutions,
+  getExams,
+  uploadExam,
+  type ExamListItem,
+} from '../lib/api'
 import { navigateTo } from '../lib/navigation'
+import type { ResolutionMode, ResolutionSummary } from '../types/exam'
 import type { OrderedExamUploadFile } from '../types/exam-upload'
 
 type StatusFilter = 'ALL' | ExamListItem['status']
@@ -36,6 +46,19 @@ const statusFilters: Array<{ label: string; value: StatusFilter }> = [
   { label: 'Concluídas', value: 'COMPLETED' },
   { label: 'Falhas', value: 'FAILED' },
 ]
+
+const resolutionModeLabels: Record<ResolutionMode, string> = {
+  EXAM: 'Modo exame',
+  STUDY: 'Modo estudo',
+}
+
+const resolutionStatusLabels: Record<ResolutionSummary['status'], string> = {
+  ERROR: 'Erro',
+  GRADED: 'Corrigida',
+  IN_PROGRESS: 'Em andamento',
+  PAUSED: 'Pausada',
+  SUBMITTED: 'Enviada',
+}
 
 function getUploadValidationField(message: string) {
   const normalizedMessage = message.toLowerCase()
@@ -81,6 +104,12 @@ export function ExamsPage() {
   }>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [examToDelete, setExamToDelete] = useState<ExamListItem | null>(null)
+  const [examToStart, setExamToStart] = useState<ExamListItem | null>(null)
+  const [historyExam, setHistoryExam] = useState<ExamListItem | null>(null)
+  const [resolutionHistory, setResolutionHistory] = useState<ResolutionSummary[]>([])
+  const [isCheckingResolution, setIsCheckingResolution] = useState(false)
+  const [isStartingResolution, setIsStartingResolution] = useState(false)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
@@ -195,8 +224,55 @@ export function ExamsPage() {
     }
   }
 
-  function handleOpenExam(examId: string) {
-    navigateTo(`/exams/${examId}`)
+  async function handleOpenExam(exam: ExamListItem) {
+    if (exam.status !== 'COMPLETED') {
+      navigateTo(`/exams/${exam.id}`)
+      return
+    }
+
+    setIsCheckingResolution(true)
+
+    try {
+      const activeResolution = await getActiveExamResolution(exam.id)
+
+      if (activeResolution) {
+        navigateTo(`/resolutions/${activeResolution.id}`)
+        return
+      }
+
+      setExamToStart(exam)
+    } finally {
+      setIsCheckingResolution(false)
+    }
+  }
+
+  async function handleStartResolution(mode: ResolutionMode) {
+    if (!examToStart) {
+      return
+    }
+
+    setIsStartingResolution(true)
+
+    try {
+      const resolution = await createExamResolution(examToStart.id, mode)
+      setExamToStart(null)
+      navigateTo(`/resolutions/${resolution.id}`)
+    } finally {
+      setIsStartingResolution(false)
+    }
+  }
+
+  async function handleOpenHistory(exam: ExamListItem) {
+    setHistoryExam(exam)
+    setResolutionHistory([])
+    setIsLoadingHistory(true)
+
+    try {
+      const resolutions = await getExamResolutions(exam.id)
+      setResolutionHistory(resolutions)
+    } finally {
+      setIsLoadingHistory(false)
+    }
   }
 
   return (
@@ -262,7 +338,7 @@ export function ExamsPage() {
                   <div className="tasko-task-card__header">
                     <button
                       className="exam-title-button"
-                      onClick={() => handleOpenExam(exam.id)}
+                      onClick={() => handleOpenExam(exam)}
                       type="button"
                     >
                       {exam.name}
@@ -292,19 +368,29 @@ export function ExamsPage() {
                       <a
                         aria-label={`Abrir prova ${exam.name}`}
                         className="exam-action-button exam-open-button"
-                        href={`/exams/${exam.id}`}
+                        href={exam.status === 'COMPLETED' ? '#' : `/exams/${exam.id}`}
                         onClick={(event) => {
                           if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
                             return
                           }
 
                           event.preventDefault()
-                          handleOpenExam(exam.id)
+                          void handleOpenExam(exam)
                         }}
                         title="Abrir prova"
                       >
                         <Icon name="eye" size={16} />
                       </a>
+                      <button
+                        aria-label={`Histórico de resoluções de ${exam.name}`}
+                        className="exam-action-button exam-history-button"
+                        disabled={exam.status !== 'COMPLETED'}
+                        onClick={() => handleOpenHistory(exam)}
+                        title="Histórico de resoluções"
+                        type="button"
+                      >
+                        <Icon name="listChecks" size={16} />
+                      </button>
                       <button
                         aria-label={`Excluir prova ${exam.name}`}
                         className="exam-action-button exam-delete-button"
@@ -418,6 +504,114 @@ export function ExamsPage() {
                 {isDeleting ? 'Excluindo...' : 'Excluir'}
               </Button>
             </div>
+          </Card>
+        </div>
+      ) : null}
+
+      {examToStart ? (
+        <div className="modal-backdrop" role="presentation">
+          <Card className="exam-modal resolution-mode-modal">
+            <div className="exam-modal__heading">
+              <div>
+                <Badge tone="blue">Resolução</Badge>
+                <h2>Como deseja resolver?</h2>
+                <p>
+                  Escolha o modo para iniciar <strong>{examToStart.name}</strong>. No modo exame,
+                  a correção aparece apenas ao finalizar. No modo estudo, as respostas poderão ser
+                  corrigidas durante a resolução quando a correção estiver ativa.
+                </p>
+              </div>
+              <button
+                aria-label="Fechar modal"
+                disabled={isStartingResolution}
+                onClick={() => setExamToStart(null)}
+                type="button"
+              >
+                <Icon name="x" size={16} />
+              </button>
+            </div>
+            <div className="resolution-mode-options">
+              <button
+                disabled={isStartingResolution}
+                onClick={() => handleStartResolution('EXAM')}
+                type="button"
+              >
+                <Icon name="clock" size={20} />
+                <span>
+                  <strong>Modo exame</strong>
+                  <small>Cronômetro ativo e feedback somente após finalizar.</small>
+                </span>
+              </button>
+              <button
+                disabled={isStartingResolution}
+                onClick={() => handleStartResolution('STUDY')}
+                type="button"
+              >
+                <Icon name="sparkles" size={20} />
+                <span>
+                  <strong>Modo estudo</strong>
+                  <small>Fluxo preparado para feedback questão a questão.</small>
+                </span>
+              </button>
+            </div>
+          </Card>
+        </div>
+      ) : null}
+
+      {historyExam ? (
+        <div className="modal-backdrop" role="presentation">
+          <Card className="exam-modal resolution-history-modal">
+            <div className="exam-modal__heading">
+              <div>
+                <Badge tone="green">Histórico</Badge>
+                <h2>Resoluções</h2>
+                <p>{historyExam.name}</p>
+              </div>
+              <button aria-label="Fechar modal" onClick={() => setHistoryExam(null)} type="button">
+                <Icon name="x" size={16} />
+              </button>
+            </div>
+
+            <div className="resolution-history-list">
+              {isLoadingHistory ? (
+                <p className="resolution-history-empty">Carregando resoluções...</p>
+              ) : resolutionHistory.length ? (
+                resolutionHistory.map((resolution) => (
+                  <button
+                    className="resolution-history-item"
+                    key={resolution.id}
+                    onClick={() => navigateTo(`/resolutions/${resolution.id}`)}
+                    type="button"
+                  >
+                    <span>
+                      <strong>{resolutionModeLabels[resolution.mode]}</strong>
+                      <small>{formatDate(resolution.created_at)}</small>
+                    </span>
+                    <span>
+                      <Badge tone="outline">{resolutionStatusLabels[resolution.status]}</Badge>
+                      {resolution.score === null || resolution.score === undefined ? null : (
+                        <strong>{Math.round(resolution.score * 100)}%</strong>
+                      )}
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <EmptyState
+                  className="empty-state--compact"
+                  description="Quando uma tentativa for iniciada, ela aparecerá neste histórico."
+                  title="Nenhuma resolução encontrada."
+                />
+              )}
+            </div>
+          </Card>
+        </div>
+      ) : null}
+
+      {isCheckingResolution ? (
+        <div className="modal-backdrop modal-backdrop--transparent" role="presentation">
+          <Card className="exam-modal resolution-checking-modal">
+            <Icon name="clock" size={20} />
+            <p>Verificando resolução em andamento...</p>
           </Card>
         </div>
       ) : null}

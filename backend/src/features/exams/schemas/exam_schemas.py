@@ -8,6 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src.features.exams.models import ExamStatus
 
+QuestionTypeValue = Literal["OBJECTIVE_SINGLE", "OBJECTIVE_MULTI", "SUBJECTIVE"]
+
 
 class ExamListSchema(BaseModel):
     id: Annotated[UUID, Field(description="ID da prova")]
@@ -89,7 +91,7 @@ class ExamViewerOptionSchema(BaseModel):
 
 class ExamViewerQuestionSchema(BaseModel):
     id: UUID
-    type: Literal["OBJECTIVE", "SUBJECTIVE"]
+    type: QuestionTypeValue
     statement: str
     image_url: str | None = None
     options: list[ExamViewerOptionSchema] = Field(default_factory=list)
@@ -108,17 +110,33 @@ class RawExamExtractionSchema(BaseModel):
 
 
 class OptionSchema(BaseModel):
-    text: str
+    text: str = Field(description="Text of this option/sub-item.")
     letter: str | None = None
-    is_correct: bool | None = None
+    is_correct: bool | None = Field(
+        default=None,
+        description="Answer-key flag. The text structuring step must leave this null.",
+    )
 
 
 class QuestionSchema(BaseModel):
     statement: str
-    type: Literal["OBJECTIVE", "SUBJECTIVE"]
+    type: QuestionTypeValue = Field(
+        description=(
+            "Use OBJECTIVE_SINGLE when there is exactly one correct option, OBJECTIVE_MULTI when more than one "
+            "option can be correct, and SUBJECTIVE for open text answers."
+        )
+    )
     category_name: str
     box_ids: list[int] = Field(default_factory=list)
     exam_order: int
+    explanation: str | None = Field(
+        default=None,
+        description="Answer-key explanation. The text structuring step must leave this null.",
+    )
+    expected_answer: str | None = Field(
+        default=None,
+        description="Subjective grading reference. The text structuring step must leave this null.",
+    )
     options: list[OptionSchema] = Field(default_factory=list)
 
 

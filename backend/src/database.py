@@ -28,6 +28,12 @@ def import_models() -> None:
     from src.features.categories.models import CategoryModel  # noqa: F401
     from src.features.exams.models import ExamDocumentModel, ExamModel  # noqa: F401
     from src.features.questions.models import OptionModel, QuestionModel  # noqa: F401
+    from src.features.resolutions.models import (  # noqa: F401
+        ExamResolutionModel,
+        QuestionResponseEvaluationModel,
+        QuestionResponseItemModel,
+        QuestionResponseModel,
+    )
     from src.features.users.models import UserModel  # noqa: F401
 
 

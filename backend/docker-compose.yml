@@ -18,6 +18,7 @@ services:
       EXAM_OCR_LANGUAGES: por,eng
       EXAM_VISION_MODEL: gpt-4o
       EXAM_VISION_DEBUG_DIR: /tmp/exam-vision-debug
+      DEV_RELOAD: "1"
       MINIO_PUBLIC_ENDPOINT: http://minio:9000
       BUCKET_PUBLIC_BASE_URL: http://localhost:9000
       MINIO_ROOT_USER: minioadmin
@@ -26,8 +27,13 @@ services:
     ports:
       - "8000:8000"
     volumes:
+      - ./src:/app/src
+      - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini:ro
+      - ./entrypoint.sh:/app/entrypoint.sh:ro
       - ./tmp:/app/tmp
       - ./tmp/exam-vision-debug:/tmp/exam-vision-debug
+    command: ["sh", "/app/entrypoint.sh"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,15 +58,21 @@ services:
       EXAM_OCR_LANGUAGES: por,eng
       EXAM_VISION_MODEL: gpt-4o
       EXAM_VISION_DEBUG_DIR: /tmp/exam-vision-debug
+      DEV_RELOAD: "1"
       MINIO_PUBLIC_ENDPOINT: http://minio:9000
       BUCKET_PUBLIC_BASE_URL: http://localhost:9000
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
       BUCKET_NAME: iasmim
     volumes:
+      - ./src:/app/src
+      - ./worker-entrypoint.sh:/app/worker-entrypoint.sh:ro
       - ./tmp:/app/tmp
       - ./tmp/exam-vision-debug:/tmp/exam-vision-debug
+    command: ["sh", "/app/worker-entrypoint.sh"]
     depends_on:
+      api:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       redis:
@@ -77,6 +89,8 @@ services:
       PORT: 3000
       VITE_API_BASE_URL: http://localhost:8000
       CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      VITE_FORCE_POLLING: "true"
     ports:
       - "3000:3000"
     volumes:

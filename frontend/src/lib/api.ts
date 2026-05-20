@@ -1,7 +1,14 @@
 import { clearAuthSession, getAuthorizationHeader } from './auth'
 import { navigateTo } from './navigation'
 import { showErrorToast } from './toast'
-import type { Question } from '../types/exam'
+import type {
+  Question,
+  QuestionResponse,
+  ResolutionDetail,
+  ResolutionEvaluationTask,
+  ResolutionMode,
+  ResolutionSummary,
+} from '../types/exam'
 import type { OrderedExamUploadFile } from '../types/exam-upload'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8002'
@@ -20,6 +27,7 @@ type ApiErrorPayload = {
 
 type ParseApiResponseOptions = {
   redirectOnUnauthorized?: boolean
+  showGlobalErrors?: boolean
 }
 
 export type ApiErrorKind = 'global' | 'validation'
@@ -120,7 +128,7 @@ async function parseApiResponse<TData>(
   response: Response,
   options: ParseApiResponseOptions = {},
 ) {
-  const { redirectOnUnauthorized = true } = options
+  const { redirectOnUnauthorized = true, showGlobalErrors = true } = options
   let payload: ApiEnvelope<TData> & ApiErrorPayload
 
   try {
@@ -145,7 +153,7 @@ async function parseApiResponse<TData>(
     const message = extractApiErrorMessage(payload)
     const error = createApiError(message, response.status)
 
-    if (error.kind === 'global') {
+    if (error.kind === 'global' && showGlobalErrors) {
       showErrorToast(message)
     }
 
@@ -282,4 +290,198 @@ export async function getExamQuestions(examId: string) {
   })
 
   return parseApiResponse<Question[]>(response)
+}
+
+export async function getActiveExamResolution(examId: string) {
+  const authorization = getAuthorizationHeader()
+
+  if (!authorization) {
+    handleUnauthorizedSession()
+    throw new ApiError('Sessão não encontrada.', 401, 'global')
+  }
+
+  const response = await fetchApi(`${API_BASE_URL}/exams/${examId}/resolutions/active`, {
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  if (response.status === 404) {
+    return null
+  }
+
+  return parseApiResponse<ResolutionSummary>(response)
+}
+
+export async function getExamResolutions(examId: string) {
+  const authorization = getAuthorizationHeader()
+
+  if (!authorization) {
+    handleUnauthorizedSession()
+    throw new ApiError('Sessão não encontrada.', 401, 'global')
+  }
+
+  const response = await fetchApi(`${API_BASE_URL}/exams/${examId}/resolutions`, {
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  return parseApiResponse<ResolutionSummary[]>(response)
+}
+
+export async function createExamResolution(examId: string, mode: ResolutionMode) {
+  const authorization = getAuthorizationHeader()
+
+  if (!authorization) {
+    handleUnauthorizedSession()
+    throw new ApiError('Sessão não encontrada.', 401, 'global')
+  }
+
+  const response = await fetchApi(`${API_BASE_URL}/exams/${examId}/resolutions`, {
+    method: 'POST',
+    headers: {
+      Authorization: authorization,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ mode }),
+  })
+
+  return parseApiResponse<ResolutionSummary>(response)
+}
+
+export async function getResolution(resolutionId: string) {
+  const authorization = getAuthorizationHeader()
+
+  if (!authorization) {
+    handleUnauthorizedSession()
+    throw new ApiError('Sessão não encontrada.', 401, 'global')
+  }
+
+  const response = await fetchApi(`${API_BASE_URL}/resolutions/${resolutionId}`, {
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  return parseApiResponse<ResolutionDetail>(response)
+}
+
+export type UpsertQuestionResponseItem = {
+  option_id?: string
+  text_answer?: string
+}
+
+export async function upsertQuestionResponse(
+  resolutionId: string,
+  questionId: string,
+  items: UpsertQuestionResponseItem[],
+) {
+  const authorization = getAuthorizationHeader()
+
+  if (!authorization) {
+    handleUnauthorizedSession()
+    throw new ApiError('Sessão não encontrada.', 401, 'global')
+  }
+
+  const response = await fetchApi(`${API_BASE_URL}/resolutions/${resolutionId}/questions/${questionId}/response`, {
+    method: 'PUT',
+    headers: {
+      Authorization: authorization,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ items }),
+  })
+
+  return parseApiResponse<QuestionResponse>(response)
+}
+
+export async function evaluateResolutionQuestion(resolutionId: string, questionId: string) {
+  const authorization = getAuthorizationHeader()
+
+  if (!authorization) {
+    handleUnauthorizedSession()
+    throw new ApiError('Sessão não encontrada.', 401, 'global')
+  }
+
+  const response = await fetchApi(`${API_BASE_URL}/resolutions/${resolutionId}/questions/${questionId}/evaluate`, {
+    method: 'POST',
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  return parseApiResponse<QuestionResponse>(response)
+}
+
+export async function evaluateResolution(resolutionId: string) {
+  const authorization = getAuthorizationHeader()
+
+  if (!authorization) {
+    handleUnauthorizedSession()
+    throw new ApiError('Sessão não encontrada.', 401, 'global')
+  }
+
+  const response = await fetchApi(`${API_BASE_URL}/resolutions/${resolutionId}/evaluate`, {
+    method: 'POST',
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  return parseApiResponse<ResolutionEvaluationTask>(response)
+}
+
+export async function pauseResolution(resolutionId: string) {
+  const authorization = getAuthorizationHeader()
+
+  if (!authorization) {
+    handleUnauthorizedSession()
+    throw new ApiError('Sessão não encontrada.', 401, 'global')
+  }
+
+  const response = await fetchApi(`${API_BASE_URL}/resolutions/${resolutionId}/pause`, {
+    method: 'POST',
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  return parseApiResponse<ResolutionSummary>(response)
+}
+
+export async function resumeResolution(resolutionId: string) {
+  const authorization = getAuthorizationHeader()
+
+  if (!authorization) {
+    handleUnauthorizedSession()
+    throw new ApiError('Sessão não encontrada.', 401, 'global')
+  }
+
+  const response = await fetchApi(`${API_BASE_URL}/resolutions/${resolutionId}/resume`, {
+    method: 'POST',
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  return parseApiResponse<ResolutionSummary>(response)
+}
+
+export async function submitResolution(resolutionId: string) {
+  const authorization = getAuthorizationHeader()
+
+  if (!authorization) {
+    handleUnauthorizedSession()
+    throw new ApiError('Sessão não encontrada.', 401, 'global')
+  }
+
+  const response = await fetchApi(`${API_BASE_URL}/resolutions/${resolutionId}/submit`, {
+    method: 'POST',
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  return parseApiResponse<{ resolution: ResolutionSummary }>(response)
 }
