@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.features.users.models import UserModel
 from src.shared.enums.enums import UserRole
-from src.shared.utils.auth import hash_password
+from src.features.auth.utils import hash_password
 
 fake = Faker("pt_BR")
 UNKNOWN_USER_ID = "00000000-0000-0000-0000-000000000001"

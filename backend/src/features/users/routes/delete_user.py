@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.database import get_db
 from src.features.users.services.user_service import delete_user
 from src.shared.schemas.http import ErrorResponse, SuccessResponse
-from src.shared.utils.auth import CurrentUser, get_current_user
+from src.features.auth.utils import CurrentUser, get_current_user
 
 router = APIRouter()
 

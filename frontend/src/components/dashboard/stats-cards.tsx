@@ -1,4 +1,3 @@
-import { Card } from '../ui/card'
 import { Icon, type IconName } from '../ui/icon'
 
 export type DashboardStat = {
@@ -10,24 +9,26 @@ export type DashboardStat = {
   value: string
 }
 
+const iconColors = ['purple', 'blue', 'orange', 'pink'] as const
+
 export function StatsCards({ stats }: { stats: DashboardStat[] }) {
   return (
-    <div className="tasko-stats-grid">
+    <div className="stat-grid">
       {stats.map((stat, index) => (
-        <Card
-          className={`tasko-stat-card ${stat.tone === 'primary' ? 'tasko-stat-card--primary' : ''}`}
+        <div
+          className="stat-card"
           key={stat.label}
           style={{ animationDelay: stat.delay ?? `${index * 100}ms` }}
         >
-          <div className="tasko-stat-card__top">
-            <h3>{stat.label}</h3>
-            <span>
-              <Icon name={stat.icon} size={14} />
+          <div className="stat-top">
+            <span className={`stat-icon ${iconColors[index % iconColors.length]}`}>
+              <Icon name={stat.icon} size={18} />
             </span>
           </div>
-          <p>{stat.value}</p>
-          {stat.subtitle ? <small>{stat.subtitle}</small> : null}
-        </Card>
+          <p className="stat-label">{stat.label}</p>
+          <p className="stat-value">{stat.value}</p>
+          {stat.subtitle ? <p className="stat-meta">{stat.subtitle}</p> : null}
+        </div>
       ))}
     </div>
   )

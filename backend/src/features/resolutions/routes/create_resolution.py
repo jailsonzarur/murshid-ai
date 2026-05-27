@@ -8,7 +8,7 @@ from src.database import get_db
 from src.features.resolutions.schemas.resolution_schemas import CreateResolutionSchema, ResolutionSummarySchema
 from src.features.resolutions.services.resolution_service import create_exam_resolution
 from src.shared.schemas.http import ErrorResponse, SuccessResponse
-from src.shared.utils.auth import CurrentUser, get_current_user
+from src.features.auth.utils import CurrentUser, get_current_user
 
 router = APIRouter()
 

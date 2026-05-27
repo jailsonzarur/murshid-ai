@@ -145,6 +145,7 @@ export function ResolutionViewerPage() {
   const isStudyMode = detail?.resolution.mode === 'STUDY'
   const currentQuestionHasAnswer = currentQuestion ? hasAnswer(answers[currentQuestion.id]) : false
   const currentQuestionHasEvaluation = Boolean(currentQuestionDetail?.response?.evaluation)
+  const isCurrentQuestionReadOnly = isReadOnly || currentQuestionHasEvaluation
   const shouldEvaluateCurrentQuestion = Boolean(
     isStudyMode && currentQuestionHasAnswer && !currentQuestionHasEvaluation && !isReadOnly,
   )
@@ -556,20 +557,24 @@ export function ResolutionViewerPage() {
       searchPlaceholder="Buscar questões..."
       title="Resolução da prova"
     >
-      <Card className="tasko-card exam-viewer-panel">
-        {isLoading ? (
+      {isLoading ? (
+        <Card className="exam-viewer-panel">
           <div className="loading-state">
             <span>
               <Icon name="clock" size={18} />
             </span>
             <p>Carregando resolução...</p>
           </div>
-        ) : !detail || !currentQuestionDetail || !currentQuestion ? (
+        </Card>
+      ) : !detail || !currentQuestionDetail || !currentQuestion ? (
+        <Card className="exam-viewer-panel">
           <EmptyState
             description="Não foi possível carregar esta resolução."
             title="Resolução indisponível."
           />
-        ) : showResolutionOverview && detail.resolution.status === 'GRADED' ? (
+        </Card>
+      ) : showResolutionOverview && detail.resolution.status === 'GRADED' ? (
+        <Card className="exam-viewer-panel">
           <section className="resolution-overview">
             <div className="resolution-overview__heading">
               <Badge tone={detail.resolution.result === 'PASSED' ? 'green' : 'orange'}>
@@ -625,9 +630,11 @@ export function ResolutionViewerPage() {
               </Button>
             </div>
           </section>
-        ) : isCorrectionPending ? (
+        </Card>
+      ) : isCorrectionPending ? (
+        <Card className="exam-viewer-panel">
           <section className="resolution-correction-loading">
-            <div className="correction-loader" aria-hidden="true">
+            <div aria-hidden="true" className="correction-loader">
               <span>
                 <Icon name="sparkles" size={24} />
               </span>
@@ -639,7 +646,7 @@ export function ResolutionViewerPage() {
                 Estamos analisando suas respostas e preparando o resumo final da prova.
               </p>
             </div>
-            <div className="resolution-correction-loading__steps" aria-label="Status da correção">
+            <div aria-label="Status da correção" className="resolution-correction-loading__steps">
               <span>
                 <Icon name="checkCircle" size={15} />
                 Respostas enviadas
@@ -655,82 +662,100 @@ export function ResolutionViewerPage() {
             </div>
             {correctionError ? <p className="inline-alert inline-alert--danger">{correctionError}</p> : null}
           </section>
-        ) : (
-          <section className="exam-viewer">
-            <header className="exam-viewer-header resolution-viewer-header">
-              <div>
-                <p className="progress-indicator">
-                  Questão {currentIndex + 1} de {detail.questions.length}
-                </p>
+        </Card>
+      ) : (
+        <div className="quiz">
+          <div className="quiz-main">
+            <div className="quiz-head">
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="q-num">
+                  Questão {String(currentIndex + 1).padStart(2, '0')} de {detail.questions.length}
+                  {' · '}
+                  {detail.resolution.mode === 'EXAM' ? 'Modo exame' : 'Modo estudo'}
+                </div>
                 <h2>
                   {currentQuestion.type !== 'SUBJECTIVE'
                     ? 'Questão objetiva'
                     : 'Questão discursiva'}
                 </h2>
-              </div>
-              <div className="resolution-toolbar">
-                <Badge tone={detail.resolution.mode === 'EXAM' ? 'blue' : 'green'}>
-                  {detail.resolution.mode === 'EXAM' ? 'Exame' : 'Estudo'}
-                </Badge>
-                <div className="resolution-timer">
-                  <Icon name="clock" size={15} />
-                  {formatTimer(elapsedSeconds)}
+                <div className="q-progress">
+                  <i style={{ width: `${progress}%` }} />
                 </div>
-                <Badge tone="outline">{answeredCount} respondidas</Badge>
-                <Badge tone="outline">{statusLabel(detail.resolution.status)}</Badge>
-                {summaryText ? <Badge tone="green">{summaryText}</Badge> : null}
-                {resultText ? (
-                  <Badge tone={detail.resolution.result === 'PASSED' ? 'green' : 'orange'}>
-                    {resultText}
-                  </Badge>
-                ) : null}
-                <Button
-                  disabled={isSubmitting}
-                  icon="pause"
-                  onClick={handlePauseAndExit}
-                  size="sm"
-                  variant="outline"
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    marginTop: 6,
+                    fontSize: 11.5,
+                    color: 'var(--ink-4)',
+                    fontWeight: 500,
+                  }}
                 >
-                  Sair
-                </Button>
+                  <span>{answeredCount} de {detail.questions.length} respondidas</span>
+                  <span>{Math.round(progress)}% completo</span>
+                </div>
               </div>
-            </header>
 
-            <div className="exam-progress" aria-hidden="true">
-              <span style={{ width: `${progress}%` }} />
+              <div className="timer-wrap">
+                {resolutionStatus === 'IN_PROGRESS' ? <span className="timer-pulse" /> : null}
+                <div className="timer-info">
+                  <div className="timer-label">Tempo decorrido</div>
+                  <div className="timer-time">{formatTimer(elapsedSeconds)}</div>
+                </div>
+                {resolutionStatus === 'IN_PROGRESS' ? (
+                  <button
+                    aria-label="Pausar e sair"
+                    className="timer-btn"
+                    disabled={isSubmitting}
+                    onClick={handlePauseAndExit}
+                    type="button"
+                  >
+                    <Icon name="pause" size={13} />
+                  </button>
+                ) : null}
+              </div>
             </div>
 
-            <nav className="question-jump-list" aria-label="Ir para questão">
-              {detail.questions.map((item: ResolutionQuestionDetail, index) => (
-                <button
-                  aria-label={`Ir para questão ${index + 1}`}
-                  className={index === currentIndex ? 'is-active' : undefined}
-                  key={item.question.id}
-                  onClick={async () => {
-                    await saveCurrentAnswer()
-                    setCurrentIndex(index)
-                  }}
-                  type="button"
-                >
-                  {index + 1}
-                  {hasAnswer(answers[item.question.id]) ? <span /> : null}
-                </button>
-              ))}
-            </nav>
+            <div className="q-bullets">
+              {detail.questions.map((item: ResolutionQuestionDetail, index) => {
+                const answered = hasAnswer(answers[item.question.id])
+                const cls = [
+                  'q-bullet',
+                  answered ? 'answered' : '',
+                  index === currentIndex ? 'current' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+                return (
+                  <button
+                    aria-label={`Ir para questão ${index + 1}`}
+                    className={cls}
+                    key={item.question.id}
+                    onClick={async () => {
+                      await saveCurrentAnswer()
+                      setCurrentIndex(index)
+                    }}
+                    type="button"
+                  >
+                    {index + 1}
+                  </button>
+                )
+              })}
+            </div>
 
-            <main className="exam-viewer-body">
+            <div className="q-body">
               <QuestionCard
                 currentAnswer={answers[currentQuestion.id]}
                 evaluation={currentQuestionDetail.response?.evaluation}
-                isReadOnly={isReadOnly}
+                isReadOnly={isCurrentQuestionReadOnly}
                 onAnswerChange={handleAnswerChange}
                 question={currentQuestion}
                 showEvaluation={detail.can_show_evaluations}
               />
-            </main>
+            </div>
 
             {detail.resolution.status === 'GRADED' ? (
-              <section className="resolution-result-panel">
+              <div className="resolution-result-panel">
                 <Badge tone="green">Resultado</Badge>
                 <h3>{summaryText ?? 'Correção concluída'}</h3>
                 <p>
@@ -738,26 +763,33 @@ export function ResolutionViewerPage() {
                     ? `${resultText}. Veja o score e o feedback de cada questão abaixo do enunciado.`
                     : 'Veja o score e o feedback de cada questão abaixo do enunciado.'}
                 </p>
-              </section>
+              </div>
             ) : null}
 
-            <footer className="exam-viewer-footer">
-              <nav className="navigation-buttons" aria-label="Navegação entre questões">
+            <div className="q-foot">
+              <div className="q-foot-meta">
+                <strong>{answeredCount}</strong> de {detail.questions.length} respondidas
+                {summaryText ? (
+                  <> · resultado <strong>{summaryText}</strong></>
+                ) : null}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
                 <Button
-                    disabled={currentIndex === 0 || isSaving || isSubmitting || isEvaluatingQuestion}
+                  disabled={currentIndex === 0 || isSaving || isSubmitting || isEvaluatingQuestion}
                   icon="arrowLeft"
                   onClick={goToPreviousQuestion}
+                  size="sm"
                   type="button"
                   variant="secondary"
                 >
                   Anterior
                 </Button>
-
                 {isLastQuestion ? (
                   <Button
                     disabled={isSaving || isSubmitting || isReadOnly}
                     icon="checkCircle"
                     onClick={handleSubmitResolution}
+                    size="sm"
                     type="button"
                     variant="dark"
                   >
@@ -768,6 +800,7 @@ export function ResolutionViewerPage() {
                     disabled={isSaving || isSubmitting || isEvaluatingQuestion}
                     icon={shouldEvaluateCurrentQuestion ? 'checkCircle' : 'arrowRight'}
                     onClick={goToNextQuestion}
+                    size="sm"
                     type="button"
                   >
                     {isEvaluatingQuestion
@@ -776,14 +809,77 @@ export function ResolutionViewerPage() {
                         ? 'Salvando...'
                         : shouldEvaluateCurrentQuestion
                           ? 'Corrigir'
-                          : 'Próxima'}
+                          : 'Próxima questão'}
                   </Button>
                 )}
-              </nav>
-            </footer>
-          </section>
-        )}
-      </Card>
+              </div>
+            </div>
+          </div>
+
+          <aside className="quiz-side">
+            <div className="side-card">
+              <h3>Tentativa atual</h3>
+              <div className="side-stat-row">
+                <span>Modo</span>
+                <strong>{detail.resolution.mode === 'STUDY' ? 'Estudo' : 'Exame'}</strong>
+              </div>
+              <div className="side-stat-row">
+                <span>Status</span>
+                <strong>{statusLabel(detail.resolution.status)}</strong>
+              </div>
+              <div className="side-stat-row">
+                <span>Respondidas</span>
+                <strong>{answeredCount} / {detail.questions.length}</strong>
+              </div>
+              {evaluatedCount > 0 ? (
+                <div className="side-stat-row">
+                  <span>Corrigidas</span>
+                  <strong>{evaluatedCount}</strong>
+                </div>
+              ) : null}
+              {summaryText ? (
+                <div className="side-stat-row">
+                  <span>Resultado</span>
+                  <strong>{summaryText}</strong>
+                </div>
+              ) : null}
+              {resultText ? (
+                <div className="side-stat-row">
+                  <span>Classificação</span>
+                  <strong
+                    style={{
+                      color:
+                        detail.resolution.result === 'PASSED'
+                          ? 'var(--ok)'
+                          : 'var(--warn)',
+                    }}
+                  >
+                    {resultText}
+                  </strong>
+                </div>
+              ) : null}
+            </div>
+
+            {fullScoreCount > 0 || partialScoreCount > 0 || zeroScoreCount > 0 ? (
+              <div className="side-card">
+                <h3>Gabarito parcial</h3>
+                <div className="side-stat-row">
+                  <span>Completas</span>
+                  <strong style={{ color: 'var(--ok)' }}>{fullScoreCount}</strong>
+                </div>
+                <div className="side-stat-row">
+                  <span>Parciais</span>
+                  <strong style={{ color: 'var(--warn)' }}>{partialScoreCount}</strong>
+                </div>
+                <div className="side-stat-row">
+                  <span>Zeradas</span>
+                  <strong style={{ color: 'var(--danger)' }}>{zeroScoreCount}</strong>
+                </div>
+              </div>
+            ) : null}
+          </aside>
+        </div>
+      )}
     </AppShell>
   )
 }

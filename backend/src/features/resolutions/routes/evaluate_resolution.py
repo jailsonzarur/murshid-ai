@@ -8,7 +8,7 @@ from src.database import get_db
 from src.features.resolutions.schemas.resolution_schemas import ResolutionEvaluationTaskSchema
 from src.features.resolutions.services.evaluation_service import enqueue_resolution_evaluation
 from src.shared.schemas.http import ErrorResponse, SuccessResponse
-from src.shared.utils.auth import CurrentUser, get_current_user
+from src.features.auth.utils import CurrentUser, get_current_user
 
 router = APIRouter()
 

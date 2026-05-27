@@ -8,20 +8,28 @@ export type ProjectListItem = {
   tone: 'blue' | 'cyan' | 'emerald' | 'amber' | 'purple'
 }
 
+const toneToClass: Record<ProjectListItem['tone'], string> = {
+  blue: 'blue',
+  cyan: 'blue',
+  emerald: 'purple',
+  amber: 'orange',
+  purple: 'purple',
+}
+
 export function ProjectList({ items }: { items: ProjectListItem[] }) {
   return (
-    <Card className="tasko-card tasko-project-list">
-      <div className="tasko-card__heading">
+    <Card className="widget-card">
+      <div className="widget-heading">
         <h2>Provas</h2>
         <Button icon="plus" size="sm" variant="outline">
           Nova
         </Button>
       </div>
 
-      <div className="tasko-project-list__items">
+      <div className="widget-project-list">
         {items.map((item) => (
-          <div className="tasko-project-list__item" key={item.name}>
-            <span className={`tasko-project-list__icon tasko-project-list__icon--${item.tone}`}>
+          <div className="widget-project-item" key={item.name}>
+            <span className={`widget-project-icon ${toneToClass[item.tone]}`}>
               {item.icon}
             </span>
             <div>

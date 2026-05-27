@@ -2,8 +2,6 @@ import { useState } from 'react'
 
 import type { ExamAnswers, Question, QuestionAnswer } from '../../types/exam'
 import { Button } from '../ui/button'
-import { EmptyState } from '../ui/empty-state'
-import { Icon } from '../ui/icon'
 import { QuestionCard } from './QuestionCard'
 
 type ExamViewerProps = {
@@ -62,83 +60,95 @@ export function ExamViewer({ questions }: ExamViewerProps) {
     setSubmissionMessage('Respostas registradas localmente para esta sessão.')
   }
 
-  if (!questions.length) {
-    return (
-      <section className="exam-viewer exam-viewer-empty">
-        <EmptyState
-          description="Quando o processamento terminar, as questões estruturadas aparecerão aqui."
-          title="Nenhuma questão disponível para esta prova."
-        />
-      </section>
-    )
-  }
-
   return (
-    <section className="exam-viewer">
-      <header className="exam-viewer-header">
-        <div>
-          <p className="progress-indicator">
-            Questão {currentIndex + 1} de {questions.length}
-          </p>
-          <h2>{currentQuestion.type !== 'SUBJECTIVE' ? 'Questão objetiva' : 'Questão discursiva'}</h2>
+    <div className="quiz-main">
+      <div className="quiz-head">
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="q-num">
+            Questão {String(currentIndex + 1).padStart(2, '0')} de {questions.length}
+          </div>
+          <h2>
+            {currentQuestion.type !== 'SUBJECTIVE' ? 'Questão objetiva' : 'Questão discursiva'}
+          </h2>
+          <div className="q-progress">
+            <i style={{ width: `${progress}%` }} />
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              marginTop: 6,
+              fontSize: 11.5,
+              color: 'var(--ink-4)',
+              fontWeight: 500,
+            }}
+          >
+            <span>{answeredCount} de {questions.length} respondidas</span>
+            <span>{Math.round(progress)}% completo</span>
+          </div>
         </div>
-        <div className="answered-pill">
-          <Icon name="checkCircle" size={15} />
-          {answeredCount} respondidas
-        </div>
-      </header>
-
-      <div className="exam-progress" aria-hidden="true">
-        <span style={{ width: `${progress}%` }} />
       </div>
 
-      <nav className="question-jump-list" aria-label="Ir para questão">
-        {questions.map((question, index) => (
-          <button
-            aria-label={`Ir para questão ${index + 1}`}
-            className={index === currentIndex ? 'is-active' : undefined}
-            key={question.id}
-            onClick={() => setCurrentIndex(index)}
-            type="button"
-          >
-            {index + 1}
-            {hasAnswer(answers[question.id]) ? <span /> : null}
-          </button>
-        ))}
-      </nav>
+      <div className="q-bullets">
+        {questions.map((question, index) => {
+          const answered = hasAnswer(answers[question.id])
+          const cls = ['q-bullet', answered ? 'answered' : '', index === currentIndex ? 'current' : '']
+            .filter(Boolean)
+            .join(' ')
+          return (
+            <button
+              aria-label={`Ir para questão ${index + 1}`}
+              className={cls}
+              key={question.id}
+              onClick={() => setCurrentIndex(index)}
+              type="button"
+            >
+              {index + 1}
+            </button>
+          )
+        })}
+      </div>
 
-      <main className="exam-viewer-body">
+      <div className="q-body">
         <QuestionCard
           currentAnswer={answers[currentQuestion.id]}
           onAnswerChange={handleAnswerChange}
           question={currentQuestion}
         />
-      </main>
+      </div>
 
-      <footer className="exam-viewer-footer">
-        {submissionMessage ? <p className="inline-alert inline-alert--success">{submissionMessage}</p> : null}
-        <nav className="navigation-buttons" aria-label="Navegação entre questões">
+      {submissionMessage ? (
+        <div style={{ padding: '0 26px' }}>
+          <p className="inline-alert inline-alert--success">{submissionMessage}</p>
+        </div>
+      ) : null}
+
+      <div className="q-foot">
+        <div className="q-foot-meta">
+          <strong>{answeredCount}</strong> de {questions.length} respondidas
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
           <Button
             disabled={isFirstQuestion}
             icon="arrowLeft"
             onClick={goToPreviousQuestion}
+            size="sm"
             type="button"
             variant="secondary"
           >
             Anterior
           </Button>
-
           {isLastQuestion ? (
-            <Button icon="checkCircle" onClick={submitExam} type="button" variant="dark">
+            <Button icon="checkCircle" onClick={submitExam} size="sm" type="button" variant="dark">
               Finalizar
             </Button>
           ) : (
-            <Button icon="arrowRight" onClick={goToNextQuestion} type="button">
-              Próxima
+            <Button icon="arrowRight" onClick={goToNextQuestion} size="sm" type="button">
+              Próxima questão
             </Button>
           )}
-        </nav>
-      </footer>
-    </section>
+        </div>
+      </div>
+    </div>
   )
 }

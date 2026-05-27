@@ -1,5 +1,6 @@
 import ReactMarkdown from 'react-markdown'
 
+import { Icon } from '../ui/icon'
 import type { Question, QuestionAnswer, QuestionResponseEvaluation } from '../../types/exam'
 
 type QuestionCardProps = {
@@ -77,93 +78,101 @@ export function QuestionCard({
   }
 
   return (
-    <article className="question-card">
-      <header className="question-header">
-        <span>
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+        <span className="q-type">
           {isObjectiveMulti
             ? 'Múltipla seleção'
             : isObjective
               ? 'Múltipla escolha'
               : 'Resposta aberta'}
         </span>
-        <h3 className="question-statement">{question.statement}</h3>
-      </header>
+      </div>
+
+      <h3 className="q-stem">{question.statement}</h3>
 
       {question.image_url ? (
         <img alt="Imagem relacionada à questão" className="question-image" src={question.image_url} />
       ) : null}
 
-      <section className="question-interaction" aria-label="Área de resposta">
-        {isObjective && hasOptions ? (
-          <fieldset className="answer-options">
-            <legend className="answer-options-title">
-              {isObjectiveMulti ? 'Selecione uma ou mais respostas' : 'Selecione uma resposta'}
-            </legend>
-            {question.options.map((option) => (
-              <label className="option-row" key={option.id}>
-                <input
-                  checked={objectiveAnswers.includes(option.id)}
-                  className="option-radio"
-                  name={`question-${question.id}`}
-                  disabled={isReadOnly}
-                  onChange={(event) => handleObjectiveAnswerChange(option.id, event.target.checked)}
-                  type={isObjectiveMulti ? 'checkbox' : 'radio'}
-                  value={option.id}
-                />
-                <span className="option-content">
-                  {option.letter ? <strong className="option-letter">{option.letter}</strong> : null}
-                  <span className="option-text">{option.text}</span>
+      {isObjective && hasOptions ? (
+        <div
+          className="options"
+          role={isObjectiveMulti ? 'group' : 'radiogroup'}
+          aria-label={isObjectiveMulti ? 'Selecione uma ou mais respostas' : 'Selecione uma resposta'}
+        >
+          {question.options.map((option, optionIndex) => {
+            const isSelected = objectiveAnswers.includes(option.id)
+            return (
+              <button
+                aria-checked={isSelected}
+                className={`option${isSelected ? ' selected' : ''}`}
+                disabled={isReadOnly}
+                key={option.id}
+                onClick={() => handleObjectiveAnswerChange(option.id, !isSelected)}
+                role={isObjectiveMulti ? 'checkbox' : 'radio'}
+                type="button"
+              >
+                <span className="option-letter">
+                  {option.letter ?? String.fromCharCode(65 + optionIndex)}
                 </span>
-              </label>
-            ))}
-          </fieldset>
-        ) : null}
+                <span className="option-text">{option.text}</span>
+                <span aria-hidden="true" className="option-radio" />
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
 
-        {!isObjective && !hasOptions ? (
-          <label className="essay-answer">
-            <span className="essay-answer-label">Sua resposta</span>
-            <textarea
-              className="essay-answer-textarea"
-              disabled={isReadOnly}
-              onChange={(event) => onAnswerChange(event.target.value)}
-              rows={8}
-              value={typeof currentAnswer === 'string' ? currentAnswer : ''}
-            />
-          </label>
-        ) : null}
+      {!isObjective && !hasOptions ? (
+        <label className="essay-answer">
+          <span className="essay-answer-label">Sua resposta</span>
+          <textarea
+            className="essay-answer-textarea"
+            disabled={isReadOnly}
+            onChange={(event) => onAnswerChange(event.target.value)}
+            rows={8}
+            value={typeof currentAnswer === 'string' ? currentAnswer : ''}
+          />
+        </label>
+      ) : null}
 
-        {!isObjective && hasOptions ? (
-          <div className="multi-item-answers">
-            {question.options.map((option) => (
-              <label className="multi-item-row" key={option.id}>
-                <span className="multi-item-prompt">
-                  {option.letter ? <strong className="option-letter">{option.letter}</strong> : null}
-                  <span className="option-text">{option.text}</span>
-                </span>
-                <input
-                  className="multi-item-input"
-                  disabled={isReadOnly}
-                  onChange={(event) => handleMultiItemAnswerChange(option.id, event.target.value)}
-                  type="text"
-                  value={multiItemAnswers[option.id] ?? ''}
-                />
-              </label>
-            ))}
-          </div>
-        ) : null}
-      </section>
+      {!isObjective && hasOptions ? (
+        <div className="multi-item-answers">
+          {question.options.map((option) => (
+            <label className="multi-item-row" key={option.id}>
+              <span className="multi-item-prompt">
+                {option.letter ? <strong className="option-letter">{option.letter}</strong> : null}
+                <span className="option-text">{option.text}</span>
+              </span>
+              <input
+                className="multi-item-input"
+                disabled={isReadOnly}
+                onChange={(event) => handleMultiItemAnswerChange(option.id, event.target.value)}
+                type="text"
+                value={multiItemAnswers[option.id] ?? ''}
+              />
+            </label>
+          ))}
+        </div>
+      ) : null}
 
       {showEvaluation && evaluation ? (
         <section
-          className={`question-evaluation${isLowScore ? ' question-evaluation--negative' : ''}`}
           aria-label="Correção da questão"
+          className={`question-evaluation${isLowScore ? ' question-evaluation--negative' : ''}`}
         >
-          {shouldShowScore ? (
-            <div className="question-evaluation__score">
-              <span>Score</span>
-              <strong>{Math.round(evaluation.score * 100)}%</strong>
+          <div className="question-evaluation__header">
+            <div className="question-evaluation__label">
+              <Icon name="sparkles" size={12} />
+              Comentário pedagógico
             </div>
-          ) : null}
+            {shouldShowScore ? (
+              <div className="question-evaluation__score-chip">
+                {Math.round(evaluation.score * 100)}%
+              </div>
+            ) : null}
+          </div>
           {evaluation.feedback ? (
             <div className="question-evaluation__feedback">
               <ReactMarkdown>{evaluation.feedback}</ReactMarkdown>
@@ -171,6 +180,6 @@ export function QuestionCard({
           ) : null}
         </section>
       ) : null}
-    </article>
+    </>
   )
 }

@@ -166,22 +166,22 @@ export function DashboardPage() {
     >
       {feedback ? <p className="inline-alert inline-alert--danger">{feedback}</p> : null}
 
-      <div className="tasko-dashboard-stack">
+      <div className="dashboard-stack">
         <StatsCards stats={dashboardStats} />
 
-        <div className="tasko-dashboard-main-grid">
-          <div className="tasko-dashboard-main-grid__wide">
+        <div className="dashboard-main-grid">
+          <div className="dashboard-main-grid__wide">
             <ProjectAnalytics data={weeklyActivity} />
             <TeamCollaboration items={collaborationItems} />
           </div>
 
-          <div className="tasko-dashboard-main-grid__side">
+          <div className="dashboard-main-grid__side">
             <Reminders />
             <ProjectProgress progress={41} />
           </div>
         </div>
 
-        <div className="tasko-dashboard-bottom-grid">
+        <div className="dashboard-bottom-grid">
           <ProjectList items={projectItems} />
           <MobileAppCard />
           <TimeTracker />

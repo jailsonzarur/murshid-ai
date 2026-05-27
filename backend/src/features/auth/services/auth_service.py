@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.shared.utils.auth import (
+from src.features.auth.utils import (
     create_access_token,
     create_refresh_token,
     decode_refresh_token,

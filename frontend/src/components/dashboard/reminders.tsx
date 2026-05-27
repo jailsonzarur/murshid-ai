@@ -3,12 +3,14 @@ import { Card } from '../ui/card'
 
 export function Reminders() {
   return (
-    <Card className="tasko-card tasko-reminder-card">
-      <h2>Lembretes</h2>
-      <div className="tasko-reminder-card__box">
+    <Card className="widget-card">
+      <div className="widget-heading">
+        <h2>Lembretes</h2>
+      </div>
+      <div className="widget-reminder-box">
         <h3>Revisar fila OCR</h3>
         <p>Horário: 14h às 16h.</p>
-        <Button className="tasko-reminder-card__button" icon="video">
+        <Button icon="video" size="sm">
           Iniciar reunião
         </Button>
       </div>

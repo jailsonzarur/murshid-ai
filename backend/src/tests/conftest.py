@@ -21,7 +21,7 @@ from src.database import Base, get_db  # noqa: E402
 from src.features.users.models import UserModel  # noqa: E402
 from src.main import app  # noqa: E402
 from src.shared.enums.enums import UserRole  # noqa: E402
-from src.shared.utils.auth import create_access_token, hash_password  # noqa: E402
+from src.features.auth.utils import create_access_token, hash_password  # noqa: E402
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -60,7 +60,7 @@ async def client(test_engine, db_session: AsyncSession) -> AsyncGenerator[AsyncC
     test_session_maker = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
     app.dependency_overrides[get_db] = override_get_db
 
-    from src.shared.middlewares import permission
+    from src.features.auth import middleware as permission
 
     original_session_maker = permission.AsyncSessionLocal
     permission.AsyncSessionLocal = test_session_maker

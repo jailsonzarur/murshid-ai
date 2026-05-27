@@ -1,15 +1,12 @@
-import { useEffect, useRef, useState, type HTMLAttributes, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type HTMLAttributes } from 'react'
 
 import { cn } from '../../lib/cn'
 import { Icon } from './icon'
 
-export type TopbarProps = HTMLAttributes<HTMLDivElement> & {
-  actions?: ReactNode
-  description?: string
+export type TopbarProps = HTMLAttributes<HTMLElement> & {
   onLogout?: () => void | Promise<void>
   onMenuClick?: () => void
   searchPlaceholder?: string
-  title?: string
   userEmail?: string
   userName?: string
 }
@@ -27,13 +24,10 @@ function getInitials(name: string) {
 }
 
 export function Topbar({
-  actions,
   className,
-  description,
   onMenuClick,
   onLogout,
   searchPlaceholder = 'Buscar provas, usuários e análises...',
-  title,
   userEmail = 'Sessão ativa',
   userName = 'Usuário',
   ...props
@@ -61,69 +55,57 @@ export function Topbar({
   }
 
   return (
-    <header className={cn('tasko-header', className)} {...props}>
-      <div className="tasko-header__toolbar">
-        <button
-          aria-label="Abrir menu"
-          className="tasko-header__icon-button tasko-header__menu-button"
-          onClick={onMenuClick}
-          type="button"
-        >
-          <Icon name="menu" size={18} />
+    <header className={cn('topbar', className)} {...props}>
+      <button
+        aria-label="Abrir menu"
+        className="icon-btn"
+        onClick={onMenuClick}
+        type="button"
+      >
+        <Icon name="menu" size={18} />
+      </button>
+
+      <label className="search">
+        <span className="sr-only">Buscar</span>
+        <Icon name="search" size={15} />
+        <input aria-label="Buscar" placeholder={searchPlaceholder} type="search" />
+        <kbd className="kbd">Ctrl F</kbd>
+      </label>
+
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <button aria-label="Mensagens" className="icon-btn" type="button">
+          <Icon name="mail" size={17} />
+        </button>
+        <button aria-label="Alertas" className="icon-btn" type="button">
+          <Icon name="bell" size={17} />
+          <span className="dot" />
         </button>
 
-        <label className="tasko-search">
-          <span className="sr-only">Buscar</span>
-          <Icon name="search" size={16} />
-          <input aria-label="Buscar" placeholder={searchPlaceholder} type="search" />
-          <kbd>Ctrl F</kbd>
-        </label>
-
-        <div className="tasko-header__tools">
-          <button aria-label="Mensagens" className="tasko-header__icon-button" type="button">
-            <Icon name="mail" size={17} />
+        <div ref={userMenuRef} style={{ position: 'relative' }}>
+          <button
+            aria-expanded={isUserMenuOpen}
+            aria-haspopup="menu"
+            className="topbar-user"
+            onClick={() => setIsUserMenuOpen((current) => !current)}
+            type="button"
+          >
+            <span className="avatar">{getInitials(userName)}</span>
+            <div className="meta">
+              <strong>{userName}</strong>
+              <span>{userEmail}</span>
+            </div>
           </button>
-          <button aria-label="Alertas" className="tasko-header__icon-button" type="button">
-            <Icon name="bell" size={17} />
-            <span className="tasko-header__notification" />
-          </button>
 
-          <div className="tasko-user-menu" ref={userMenuRef}>
-            <button
-              aria-expanded={isUserMenuOpen}
-              aria-haspopup="menu"
-              className="tasko-user-menu__trigger"
-              onClick={() => setIsUserMenuOpen((current) => !current)}
-              type="button"
-            >
-              <span className="tasko-avatar">{getInitials(userName)}</span>
-              <span className="tasko-user-menu__copy">
-                <strong>{userName}</strong>
-                <span>{userEmail}</span>
-              </span>
-            </button>
-
-            {isUserMenuOpen ? (
-              <div className="tasko-user-menu__popover" role="menu">
-                <button onClick={handleLogoutClick} role="menuitem" type="button">
-                  <Icon name="logOut" size={16} />
-                  Sair
-                </button>
-              </div>
-            ) : null}
-          </div>
+          {isUserMenuOpen ? (
+            <div className="topbar-popover" role="menu">
+              <button onClick={handleLogoutClick} role="menuitem" type="button">
+                <Icon name="logOut" size={16} />
+                Sair
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
-
-      {title || description || actions ? (
-        <div className="tasko-header__heading">
-          <div>
-            {title ? <h1>{title}</h1> : null}
-            {description ? <p>{description}</p> : null}
-          </div>
-          {actions ? <div className="tasko-header__actions">{actions}</div> : null}
-        </div>
-      ) : null}
     </header>
   )
 }

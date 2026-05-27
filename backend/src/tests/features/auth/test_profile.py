@@ -4,7 +4,7 @@ import jwt
 import pytest
 from httpx import AsyncClient
 
-from src.shared.utils.auth import SECRET_KEY, create_access_token
+from src.features.auth.utils import SECRET_KEY, create_access_token
 
 
 def describe_GET_profile():

@@ -13,17 +13,17 @@ export type CollaborationItem = {
 
 export function TeamCollaboration({ items }: { items: CollaborationItem[] }) {
   return (
-    <Card className="tasko-card tasko-team-card">
-      <div className="tasko-card__heading">
+    <Card className="widget-card">
+      <div className="widget-heading">
         <h2>Colaboração da equipe</h2>
         <Button icon="plus" size="sm" variant="outline">
           Adicionar membro
         </Button>
       </div>
 
-      <div className="tasko-team-card__list">
+      <div className="widget-team-list">
         {items.map((item) => (
-          <div className="tasko-team-card__item" key={item.name}>
+          <div className="widget-team-item" key={item.name}>
             <Avatar>
               <AvatarFallback>{item.initials}</AvatarFallback>
             </Avatar>

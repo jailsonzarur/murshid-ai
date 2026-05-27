@@ -120,26 +120,34 @@ export function AppShell({
   }
 
   return (
-    <main className="app-shell">
+    <div className="app">
       <Sidebar
         brandLabel="IAsmim"
         brandSubtitle="OCR médico"
         sections={createNavigationSections(activeItem, handleNavigate, handleLogout)}
       />
 
-      <section className="app-main">
+      <main className="main">
         <Topbar
-          actions={actions}
-          description={description}
           onLogout={handleLogout}
           searchPlaceholder={searchPlaceholder}
-          title={title}
           userEmail={resolvedUserEmail}
           userName={resolvedUserName}
         />
 
-        <div className={cn('app-content', contentClassName)}>{children}</div>
-      </section>
-    </main>
+        <div className={cn('page', contentClassName)}>
+          {(title || description || actions) ? (
+            <div className="page-head">
+              <div>
+                {title ? <h1 className="page-title">{title}</h1> : null}
+                {description ? <p className="page-sub">{description}</p> : null}
+              </div>
+              {actions ? <div className="page-actions">{actions}</div> : null}
+            </div>
+          ) : null}
+          {children}
+        </div>
+      </main>
+    </div>
   )
 }

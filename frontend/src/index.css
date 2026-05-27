@@ -1,18 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
-  --sans: 'Inter', sans-serif;
-  --heading: 'Inter', sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
-
-  color: #111111;
   color-scheme: light;
-  font: 16px/145% var(--sans);
-  font-synthesis: none;
-  background: #ffffff;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
 }
 
 * {
@@ -30,20 +19,12 @@ body {
   min-height: 100svh;
 }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
-
-a {
-  color: inherit;
-}
-
 p,
 h1,
 h2,
-h3 {
+h3,
+h4,
+h5,
+h6 {
   margin: 0;
 }

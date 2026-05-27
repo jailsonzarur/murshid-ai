@@ -11,19 +11,19 @@ export function ProjectAnalytics({ data }: { data: AnalyticsPoint[] }) {
   const average = Math.round(data.reduce((sum, point) => sum + point.value, 0) / data.length)
 
   return (
-    <Card className="tasko-card tasko-analytics-card">
-      <div className="tasko-card__heading">
+    <Card className="widget-card">
+      <div className="widget-heading">
         <h2>Análise de provas</h2>
-        <div className="tasko-legend">
+        <div className="widget-legend">
           <span />
           Atividade semanal
         </div>
       </div>
 
-      <div className="tasko-bars" aria-label="Atividade semanal">
+      <div className="widget-bars" aria-label="Atividade semanal">
         {data.map((point) => (
-          <div className="tasko-bars__item" key={`${point.day}-${point.label}`}>
-            <div className="tasko-bars__bar">
+          <div className="widget-bars__item" key={`${point.day}-${point.label}`}>
+            <div className="widget-bars__bar">
               <span style={{ height: `${point.value}%` }} />
             </div>
             <strong>{point.day}</strong>
@@ -31,7 +31,7 @@ export function ProjectAnalytics({ data }: { data: AnalyticsPoint[] }) {
         ))}
       </div>
 
-      <div className="tasko-analytics-card__summary">
+      <div className="widget-bars__summary">
         <p>
           <span>Média: </span>
           <strong>{average}%</strong>

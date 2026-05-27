@@ -1,7 +1,7 @@
 import pytest
 from httpx import AsyncClient
 
-from src.shared.utils.auth import create_refresh_token
+from src.features.auth.utils import create_refresh_token
 
 
 def describe_POST_auth_logout():

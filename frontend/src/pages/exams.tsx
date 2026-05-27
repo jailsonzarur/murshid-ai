@@ -287,9 +287,9 @@ export function ExamsPage() {
       searchPlaceholder="Buscar provas..."
       title="Provas"
     >
-      <section className="tasko-tasks-content" aria-label="Banco de provas">
-        <div className="tasko-tasks-toolbar">
-          <div className="tasko-tasks-search">
+      <section aria-label="Banco de provas">
+        <div className="exams-toolbar">
+          <div className="exams-search">
             <Input
               aria-label="Buscar prova"
               icon="search"
@@ -298,7 +298,7 @@ export function ExamsPage() {
               value={query}
             />
           </div>
-          <div className="tasko-tasks-toolbar__actions">
+          <div style={{ display: 'flex', gap: '8px' }}>
             <Button icon="filter" variant="outline">
               Filter
             </Button>
@@ -308,110 +308,113 @@ export function ExamsPage() {
           </div>
         </div>
 
-        <div className="tasko-filter-buttons" aria-label="Filtrar por status">
+        <div className="tabs" aria-label="Filtrar por status">
           {statusFilters.map((filter) => (
             <button
-              className={filter.value === statusFilter ? 'is-active' : undefined}
+              className={filter.value === statusFilter ? 'tab active' : 'tab'}
               key={filter.value}
               onClick={() => setStatusFilter(filter.value)}
               type="button"
             >
               {filter.label}
-              <span>{statusCounts[filter.value]}</span>
+              <span className="tab-count">{statusCounts[filter.value]}</span>
             </button>
           ))}
         </div>
 
-        <div className="tasko-task-list">
-          {isLoading ? (
-            <EmptyState
-              description="Estamos buscando suas provas e status de processamento."
-              title="Carregando provas..."
-            />
-          ) : filteredExams.length ? (
-            filteredExams.map((exam) => (
-              <Card className="tasko-task-card" key={exam.id}>
-                <div className="tasko-task-card__check" aria-hidden="true">
-                  <span />
+        {isLoading ? (
+          <EmptyState
+            description="Estamos buscando suas provas e status de processamento."
+            title="Carregando provas..."
+          />
+        ) : filteredExams.length ? (
+          <div className="prova-list">
+            {filteredExams.map((exam, index) => (
+              <div className="prova-row" key={exam.id}>
+                <span className="prova-num">{String(index + 1).padStart(2, '0')}</span>
+                <div className="exam-row-icon">
+                  <Icon name="fileText" size={18} />
                 </div>
-                <div className="tasko-task-card__content">
-                  <div className="tasko-task-card__header">
-                    <button
-                      className="exam-title-button"
-                      onClick={() => handleOpenExam(exam)}
-                      type="button"
-                    >
-                      {exam.name}
-                    </button>
-                    <Badge tone={statusTones[exam.status]}>{statusLabels[exam.status]}</Badge>
-                  </div>
-                  <div className="tasko-task-card__meta">
+                <div>
+                  <button
+                    className="prova-title"
+                    onClick={() => handleOpenExam(exam)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit', textAlign: 'left' }}
+                    type="button"
+                  >
+                    {exam.name}
+                  </button>
+                  <div className="prova-sub">
                     <span>
-                      <Icon name="tag" size={15} />
+                      <Icon name="tag" size={13} />
                       {exam.general_subject ?? 'Sem assunto'}
                     </span>
-                    <span>
-                      <Icon name="calendar" size={15} />
-                      {formatDate(exam.created_at)}
-                    </span>
-                    <span>
-                      <Icon name="fileText" size={15} />
-                      {exam.documents_count} arquivos
-                    </span>
                   </div>
-                  <div className="tasko-task-card__footer">
-                    <div className="tasko-task-card__tags">
-                      <Badge tone="outline">OCR</Badge>
-                      <Badge tone="outline">Prova</Badge>
-                    </div>
-                    <div className="exam-actions">
-                      <a
-                        aria-label={`Abrir prova ${exam.name}`}
-                        className="exam-action-button exam-open-button"
-                        href={exam.status === 'COMPLETED' ? '#' : `/exams/${exam.id}`}
-                        onClick={(event) => {
-                          if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
-                            return
-                          }
-
-                          event.preventDefault()
-                          void handleOpenExam(exam)
-                        }}
-                        title="Abrir prova"
-                      >
-                        <Icon name="eye" size={16} />
-                      </a>
-                      <button
-                        aria-label={`Histórico de resoluções de ${exam.name}`}
-                        className="exam-action-button exam-history-button"
-                        disabled={exam.status !== 'COMPLETED'}
-                        onClick={() => handleOpenHistory(exam)}
-                        title="Histórico de resoluções"
-                        type="button"
-                      >
-                        <Icon name="listChecks" size={16} />
-                      </button>
-                      <button
-                        aria-label={`Excluir prova ${exam.name}`}
-                        className="exam-action-button exam-delete-button"
-                        onClick={() => setExamToDelete(exam)}
-                        title="Excluir prova"
-                        type="button"
-                      >
-                        <Icon name="trash" size={16} />
-                      </button>
-                    </div>
+                  <div className="prova-tags">
+                    <Badge tone="outline">OCR</Badge>
+                    <Badge tone="outline">Prova</Badge>
                   </div>
                 </div>
-              </Card>
-            ))
-          ) : (
-            <EmptyState
-              description="Quando houver provas cadastradas, elas aparecerão nesta lista."
-              title="Nenhuma prova encontrada."
-            />
-          )}
-        </div>
+                <div>
+                  <div className="cell-label">Status</div>
+                  <div className="cell-value">
+                    <Badge tone={statusTones[exam.status]}>{statusLabels[exam.status]}</Badge>
+                  </div>
+                </div>
+                <div>
+                  <div className="cell-label">Data</div>
+                  <div className="cell-value">{formatDate(exam.created_at)}</div>
+                </div>
+                <div>
+                  <div className="cell-label">Arquivos</div>
+                  <div className="cell-value mono">{exam.documents_count}</div>
+                </div>
+                <div className="row-actions">
+                  <a
+                    aria-label={`Abrir prova ${exam.name}`}
+                    className="icon-btn blue"
+                    href={exam.status === 'COMPLETED' ? '#' : `/exams/${exam.id}`}
+                    onClick={(event) => {
+                      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+                        return
+                      }
+
+                      event.preventDefault()
+                      void handleOpenExam(exam)
+                    }}
+                    title="Abrir prova"
+                  >
+                    <Icon name="eye" size={15} />
+                  </a>
+                  <button
+                    aria-label={`Histórico de resoluções de ${exam.name}`}
+                    className="icon-btn"
+                    disabled={exam.status !== 'COMPLETED'}
+                    onClick={() => handleOpenHistory(exam)}
+                    title="Histórico de resoluções"
+                    type="button"
+                  >
+                    <Icon name="listChecks" size={15} />
+                  </button>
+                  <button
+                    aria-label={`Excluir prova ${exam.name}`}
+                    className="icon-btn danger"
+                    onClick={() => setExamToDelete(exam)}
+                    title="Excluir prova"
+                    type="button"
+                  >
+                    <Icon name="trash" size={15} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            description="Quando houver provas cadastradas, elas aparecerão nesta lista."
+            title="Nenhuma prova encontrada."
+          />
+        )}
       </section>
 
       {isModalOpen ? (

@@ -13,7 +13,7 @@ from src.features.auth import router as auth_router
 from src.features.exams import router as exams_router
 from src.features.resolutions import router as resolutions_router
 from src.features.users import router as users_router
-from src.shared.middlewares.permission import PermissionMiddleware
+from src.features.auth.middleware import PermissionMiddleware
 from src.shared.utils.error_handler import http_exception_handler, validation_exception_handler
 
 logger = logging.getLogger(__name__)
