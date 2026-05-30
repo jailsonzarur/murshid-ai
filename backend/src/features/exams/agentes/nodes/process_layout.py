@@ -276,8 +276,8 @@ def _get_gemini_model() -> Any:
     api_key = str(config("GOOGLE_API_KEY", default="")).strip()
     model_name = str(config("EXAM_LAYOUT_MODEL", default="gemini-2.5-flash")).strip()
     if api_key:
-        genai.configure(api_key=api_key)
-    return genai.GenerativeModel(model_name)
+        genai.configure(api_key=api_key)  # pyright: ignore[reportPrivateImportUsage]
+    return genai.GenerativeModel(model_name)  # pyright: ignore[reportPrivateImportUsage]
 
 
 async def _detect_page_layout(page: Any, exam_id: UUID, page_index: int) -> _PageLayout:
@@ -287,7 +287,7 @@ async def _detect_page_layout(page: Any, exam_id: UUID, page_index: int) -> _Pag
     try:
         response = await model.generate_content_async(
             [page, _DETECTION_PROMPT],
-            generation_config=genai.GenerationConfig(
+            generation_config=genai.GenerationConfig(  # pyright: ignore[reportPrivateImportUsage]
                 response_mime_type="application/json",
                 response_schema=_PageLayout,
                 temperature=0,
@@ -328,7 +328,7 @@ async def _verify_elements(
     try:
         response = await model.generate_content_async(
             content,
-            generation_config=genai.GenerationConfig(
+            generation_config=genai.GenerationConfig(  # pyright: ignore[reportPrivateImportUsage]
                 response_mime_type="application/json",
                 response_schema=_VerificationOutput,
                 temperature=0,
