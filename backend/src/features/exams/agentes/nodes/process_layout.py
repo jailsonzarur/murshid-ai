@@ -1,12 +1,8 @@
 from __future__ import annotations
 
-import asyncio
 import base64
 import json
 import logging
-import re
-import shutil
-from collections import defaultdict
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -14,6 +10,7 @@ from typing import Any
 from uuid import UUID
 
 from decouple import config
+from pydantic import BaseModel
 
 from src.features.exams.agentes.state import (
     ExamProcessingState,
@@ -25,12 +22,80 @@ from src.features.files.services.bucket_service import MinioBucketService, get_b
 
 logger = logging.getLogger(__name__)
 
-VISUAL_ELEMENT_CATEGORIES = {"Image", "Figure", "Table"}
-QUESTION_START_PATTERN = re.compile(
-    r"^\s*(?:quest(?:ão|ao)?\s*)?(\d{1,3})(?:\s*[\.\-–:]|\s*$)",
-    re.IGNORECASE,
-)
+# ── Schemas Pydantic ──────────────────────────────────────────────────────────
 
+class _VisualElement(BaseModel):
+    label: str
+    box_2d: list[int]  # [y1, x1, y2, x2] escala 0–1000
+
+
+class _QuestionMarker(BaseModel):
+    number: int
+    y: int  # escala 0–1000, 0=topo
+
+
+class _PageLayout(BaseModel):
+    question_markers: list[_QuestionMarker]
+    visual_elements: list[_VisualElement]
+
+
+class _VerificationItem(BaseModel):
+    index: int
+    relevant: bool
+    reason: str
+
+
+class _VerificationOutput(BaseModel):
+    results: list[_VerificationItem]
+
+
+# ── Prompts ───────────────────────────────────────────────────────────────────
+
+_DETECTION_PROMPT = """
+Analyze this exam page and extract:
+
+1. question_markers — each numbered question that STARTS on this page.
+   - number: question number as integer (e.g., 1, 2, 15)
+   - y: vertical position as integer 0–1000 (0=top, 1000=bottom)
+   - Recognize: "Questão 1", "Q1", "1.", "1)", "01.", "QUESTÃO 01", "1 -", "1 –" etc.
+   - Report each question number only ONCE at its first occurrence.
+   - Return empty list if no numbered question starts on this page.
+
+2. visual_elements — non-text visual content embedded in exam questions:
+   photographs, scientific diagrams, maps, graphs, chemical structures, anatomical figures.
+   - label: brief description of what the element shows
+   - box_2d: [y1, x1, y2, x2] as integers 0–1000 where (0,0)=top-left, (1000,1000)=bottom-right
+   - Be generous with bounding boxes to ensure the complete element is captured.
+   - EXCLUDE: question text, answer options, headers, footers, page numbers, blank spaces, logos.
+
+Return empty lists if nothing is found.
+""".strip()
+
+_VERIFICATION_PROMPT = """
+You are analyzing cropped visual elements extracted from an exam page.
+
+For each numbered element, decide if it is a RELEVANT FIGURE for an exam question:
+
+RELEVANT (relevant=true):
+- Scientific diagrams (biology, chemistry, physics, geography, etc.)
+- Maps, graphs, charts, data plots
+- Photographs illustrating a concept or phenomenon
+- Chemical structures, anatomical figures, mathematical illustrations
+- Any image a student would need to look at to answer a question
+
+NOT RELEVANT (relevant=false):
+- University/institution logos or crests
+- Decorative borders, watermarks, page stamps
+- Page headers/footers with institutional branding
+- Generic icons or clip art unrelated to any question
+- Any image clearly not part of an exam question
+
+The exam page is provided as context (first image).
+Fill one entry per element in order, using its index number.
+""".strip()
+
+
+# ── Node principal ────────────────────────────────────────────────────────────
 
 async def process_layout_node(state: ExamProcessingState) -> ExamProcessingState:
     exam_id = state["exam_id"]
@@ -53,29 +118,119 @@ async def process_layout_node(state: ExamProcessingState) -> ExamProcessingState
         for document_index, document in enumerate(sorted_documents, start=1):
             document_path = _download_document(bucket_service, document, temp_path, document_index)
             clean_pages = _document_to_pil_pages(document_path, document.get("mime_type"))
-            elements = await asyncio.to_thread(_partition_document, document_path)
-            visual_boxes_by_page = _get_visual_boxes_by_page(elements, clean_pages)
-            question_starts.extend(_get_question_starts(elements, clean_pages, global_page_offset))
+            logger.info(
+                "[layout] exam=%s doc=%d pages=%d mime=%s",
+                exam_id, document_index, len(clean_pages), document.get("mime_type"),
+            )
 
             for local_page_index, clean_page in enumerate(clean_pages):
                 global_page_index = global_page_offset + local_page_index
+                logger.info(
+                    "[layout] exam=%s page=%d size=%dx%d — calling Gemini",
+                    exam_id, global_page_index + 1, clean_page.width, clean_page.height,
+                )
+
                 original_pages_base64.append(_pil_image_to_jpeg_base64(clean_page))
 
+                # ── Etapa 1: detecção ────────────────────────────────────────
+                page_layout = await _detect_page_layout(clean_page, exam_id, global_page_index)
+                logger.info(
+                    "[layout] exam=%s page=%d → question_markers=%s visual_elements=%d",
+                    exam_id,
+                    global_page_index + 1,
+                    [m.number for m in page_layout.question_markers],
+                    len(page_layout.visual_elements),
+                )
+
+                for marker in page_layout.question_markers:
+                    y_pixel = marker.y * clean_page.height / 1000
+                    logger.debug(
+                        "[layout] exam=%s page=%d question_marker: number=%d y=%d y_px=%.1f",
+                        exam_id, global_page_index + 1, marker.number, marker.y, y_pixel,
+                    )
+                    question_starts.append({
+                        "question_number": marker.number,
+                        "page_index": global_page_index,
+                        "y": y_pixel,
+                        "text": f"Question {marker.number}",
+                    })
+
+                # ── Etapa 2: denormalização + merge ──────────────────────────
+                raw_boxes: list[tuple[str, int, int, int, int]] = []
+                for el in page_layout.visual_elements:
+                    if len(el.box_2d) != 4:
+                        logger.warning(
+                            "[layout] exam=%s page=%d invalid box_2d for '%s': %s — skipped",
+                            exam_id, global_page_index + 1, el.label, el.box_2d,
+                        )
+                        continue
+                    y1_n, x1_n, y2_n, x2_n = el.box_2d
+                    raw_boxes.append((
+                        el.label,
+                        _denorm(x1_n, clean_page.width),
+                        _denorm(y1_n, clean_page.height),
+                        _denorm(x2_n, clean_page.width),
+                        _denorm(y2_n, clean_page.height),
+                    ))
+
+                gap_threshold = max(30, round(min(clean_page.width, clean_page.height) * 0.05))
+                merged_boxes = _merge_close_boxes(raw_boxes, gap_threshold)
+                if len(merged_boxes) < len(raw_boxes):
+                    logger.info(
+                        "[layout] exam=%s page=%d merged %d→%d boxes (gap_threshold=%dpx)",
+                        exam_id, global_page_index + 1, len(raw_boxes), len(merged_boxes), gap_threshold,
+                    )
+
+                # ── Etapa 3: refinamento por conteúdo ────────────────────────
+                final_padding = max(6, round(min(clean_page.width, clean_page.height) * 0.005))
+                refined: list[tuple[str, tuple[float, float, float, float], Any]] = []
+                for label, x1, y1, x2, y2 in merged_boxes:
+                    rx1, ry1, rx2, ry2 = _refine_bbox_by_content(clean_page, x1, y1, x2, y2)
+                    coords = (float(rx1), float(ry1), float(rx2), float(ry2))
+                    crop_img = clean_page.crop((
+                        max(0, rx1 - final_padding),
+                        max(0, ry1 - final_padding),
+                        min(clean_page.width, rx2 + final_padding),
+                        min(clean_page.height, ry2 + final_padding),
+                    ))
+                    refined.append((label, coords, crop_img))
+
+                # ── Etapa 4: verificação de relevância ───────────────────────
+                crops_for_verification = [
+                    (idx, crop_img)
+                    for idx, (_, _, crop_img) in enumerate(refined, start=1)
+                ]
+                verification = await _verify_elements(
+                    clean_page, crops_for_verification, exam_id, global_page_index
+                )
+                relevant_indices = {v.index for v in verification if v.relevant}
+
+                # ── Etapa 5: monta layout_elements e anota página ────────────
                 annotated_page = clean_page.copy()
-                for coordinates in visual_boxes_by_page.get(local_page_index, []):
+                for idx, (label, coords, _) in enumerate(refined, start=1):
+                    if idx not in relevant_indices:
+                        logger.debug(
+                            "[layout] exam=%s page=%d element=%d '%s' REJECTED by verification",
+                            exam_id, global_page_index + 1, idx, label,
+                        )
+                        continue
+
                     box_id = box_id_counter
-                    _draw_numbered_box(annotated_page, coordinates, box_id)
+                    logger.debug(
+                        "[layout] exam=%s page=%d element=%d '%s' → box_id=%d coords=(%.0f,%.0f,%.0f,%.0f)",
+                        exam_id, global_page_index + 1, idx, label,
+                        box_id, coords[0], coords[1], coords[2], coords[3],
+                    )
+                    _draw_numbered_box(annotated_page, coords, box_id)
                     layout_elements[box_id] = {
                         "page_index": global_page_index,
-                        "coordinates": coordinates,
+                        "coordinates": coords,
                     }
-                    visual_boxes.append(
-                        {
-                            "box_id": box_id,
-                            "page_index": global_page_index,
-                            "coordinates": coordinates,
-                        }
-                    )
+                    visual_boxes.append({
+                        "box_id": box_id,
+                        "page_index": global_page_index,
+                        "coordinates": coords,
+                    })
                     box_id_counter += 1
 
                 _save_debug_annotated_page(annotated_page, exam_id, global_page_index)
@@ -83,6 +238,14 @@ async def process_layout_node(state: ExamProcessingState) -> ExamProcessingState
 
             global_page_offset += len(clean_pages)
 
+    question_starts = _deduplicate_question_starts(question_starts)
+    logger.info(
+        "[layout] exam=%s finished — total_pages=%d questions_detected=%s visual_boxes=%d",
+        exam_id,
+        len(original_pages_base64),
+        [s["question_number"] for s in question_starts],
+        len(visual_boxes),
+    )
     question_boundary_hints = _build_question_boundary_hints(question_starts, visual_boxes)
     _save_debug_question_boundary_hints(question_boundary_hints, exam_id)
 
@@ -98,33 +261,170 @@ async def process_layout_node(state: ExamProcessingState) -> ExamProcessingState
 def format_question_boundary_hints(question_boundary_hints: list[str]) -> str:
     formatted_hints = "\n".join(f"- {hint}" for hint in question_boundary_hints)
     return (
-        "QUESTION BOUNDARY HINTS FROM OCR/LAYOUT PREPROCESSING:\n"
+        "QUESTION BOUNDARY HINTS FROM VISION LAYOUT ANALYSIS:\n"
         "Use these hints to associate red box IDs with the correct question. These hints are derived from detected "
         "question-number positions and should override simple visual proximity when a page break occurs.\n"
         f"{formatted_hints}"
     )
 
 
-def _partition_document(document_path: Path) -> list[Any]:
-    from unstructured.partition.auto import partition
+# ── Chamadas ao Gemini ────────────────────────────────────────────────────────
 
-    if not shutil.which("tesseract"):
-        raise RuntimeError(
-            "Tesseract OCR is required by unstructured hi_res layout extraction, but the `tesseract` binary was not "
-            "found in PATH. Install it locally with `brew install tesseract` before running the Celery worker on "
-            "macOS. If you need Portuguese OCR data, also install `brew install tesseract-lang` and set "
-            "EXAM_OCR_LANGUAGES=por,eng."
+def _get_gemini_model() -> Any:
+    import google.generativeai as genai
+
+    api_key = str(config("GOOGLE_API_KEY", default="")).strip()
+    model_name = str(config("EXAM_LAYOUT_MODEL", default="gemini-2.5-flash")).strip()
+    if api_key:
+        genai.configure(api_key=api_key)
+    return genai.GenerativeModel(model_name)
+
+
+async def _detect_page_layout(page: Any, exam_id: UUID, page_index: int) -> _PageLayout:
+    import google.generativeai as genai
+
+    model = _get_gemini_model()
+    try:
+        response = await model.generate_content_async(
+            [page, _DETECTION_PROMPT],
+            generation_config=genai.GenerationConfig(
+                response_mime_type="application/json",
+                response_schema=_PageLayout,
+                temperature=0,
+            ),
         )
+        result = _PageLayout.model_validate_json(response.text)
+        logger.debug("[layout] exam=%s page=%d detection raw: %s", exam_id, page_index + 1, response.text[:300])
+        return result
+    except Exception:
+        logger.exception(
+            "[layout] exam=%s page=%d Gemini detection failed, using empty layout",
+            exam_id, page_index + 1,
+        )
+        return _PageLayout(question_markers=[], visual_elements=[])
 
-    raw_languages = str(config("EXAM_OCR_LANGUAGES", default="eng"))
-    languages = [language.strip() for language in raw_languages.split(",") if language.strip()]
 
-    return partition(
-        filename=str(document_path),
-        strategy="hi_res",
-        languages=languages or ["eng"],
-        pdf_infer_table_structure=True,
-    )
+async def _verify_elements(
+    page: Any,
+    crops: list[tuple[int, Any]],
+    exam_id: UUID,
+    page_index: int,
+) -> list[_VerificationItem]:
+    import google.generativeai as genai
+
+    if not crops:
+        return []
+
+    def _approve_all() -> list[_VerificationItem]:
+        return [_VerificationItem(index=idx, relevant=True, reason="fallback") for idx, _ in crops]
+
+    content: list[Any] = [page, "Exam page (context)."]
+    for idx, crop_img in crops:
+        content.append(f"Element {idx}:")
+        content.append(crop_img)
+    content.append(_VERIFICATION_PROMPT)
+
+    model = _get_gemini_model()
+    try:
+        response = await model.generate_content_async(
+            content,
+            generation_config=genai.GenerationConfig(
+                response_mime_type="application/json",
+                response_schema=_VerificationOutput,
+                temperature=0,
+            ),
+        )
+        result = _VerificationOutput.model_validate_json(response.text)
+        logger.debug("[layout] exam=%s page=%d verification raw: %s", exam_id, page_index + 1, response.text[:300])
+        return result.results
+    except Exception:
+        logger.exception(
+            "[layout] exam=%s page=%d Gemini verification failed, approving all elements",
+            exam_id, page_index + 1,
+        )
+        return _approve_all()
+
+
+# ── Processamento de bboxes ───────────────────────────────────────────────────
+
+def _denorm(val: int, total: int) -> int:
+    return max(0, min(total, round(val * total / 1000)))
+
+
+def _merge_close_boxes(
+    boxes: list[tuple[str, int, int, int, int]],
+    gap_threshold: int,
+) -> list[tuple[str, int, int, int, int]]:
+    def rect_gap(a: tuple, b: tuple) -> float:
+        x_gap = max(0, max(a[1] - b[3], b[1] - a[3]))
+        y_gap = max(0, max(a[2] - b[4], b[2] - a[4]))
+        return (x_gap ** 2 + y_gap ** 2) ** 0.5
+
+    def merge_two(a: tuple, b: tuple) -> tuple:
+        label = a[0] if a[0] == b[0] else f"{a[0]} + {b[0]}"
+        return (label, min(a[1], b[1]), min(a[2], b[2]), max(a[3], b[3]), max(a[4], b[4]))
+
+    changed = True
+    while changed:
+        changed = False
+        result: list[tuple] = []
+        used: set[int] = set()
+        for i in range(len(boxes)):
+            if i in used:
+                continue
+            current = boxes[i]
+            for j in range(i + 1, len(boxes)):
+                if j in used:
+                    continue
+                if rect_gap(current, boxes[j]) <= gap_threshold:
+                    current = merge_two(current, boxes[j])
+                    used.add(j)
+                    changed = True
+            result.append(current)
+            used.add(i)
+        boxes = result
+
+    return boxes
+
+
+def _refine_bbox_by_content(
+    image: Any,
+    x1: int, y1: int, x2: int, y2: int,
+    expansion: float = 0.12,
+    bg_threshold: int = 240,
+) -> tuple[int, int, int, int]:
+    from PIL import ImageOps
+
+    w, h = image.width, image.height
+    margin_x = max(20, int((x2 - x1) * expansion))
+    margin_y = max(20, int((y2 - y1) * expansion))
+    exp_x1 = max(0, x1 - margin_x)
+    exp_y1 = max(0, y1 - margin_y)
+    exp_x2 = min(w, x2 + margin_x)
+    exp_y2 = min(h, y2 + margin_y)
+
+    crop = image.crop((exp_x1, exp_y1, exp_x2, exp_y2)).convert("L")
+    binary = crop.point(lambda p: 0 if p < bg_threshold else 255, "L")
+    content_bbox = ImageOps.invert(binary).getbbox()
+
+    if content_bbox is None:
+        return exp_x1, exp_y1, exp_x2, exp_y2
+
+    cx1, cy1, cx2, cy2 = content_bbox
+    return exp_x1 + cx1, exp_y1 + cy1, exp_x1 + cx2, exp_y1 + cy2
+
+
+# ── Funções auxiliares (inalteradas) ──────────────────────────────────────────
+
+def _deduplicate_question_starts(question_starts: list[QuestionStartState]) -> list[QuestionStartState]:
+    sorted_starts = sorted(question_starts, key=lambda item: (item["page_index"], item["y"], item["question_number"]))
+    seen_numbers: set[int] = set()
+    deduped: list[QuestionStartState] = []
+    for start in sorted_starts:
+        if start["question_number"] not in seen_numbers:
+            seen_numbers.add(start["question_number"])
+            deduped.append(start)
+    return deduped
 
 
 def _download_document(
@@ -165,80 +465,10 @@ def _document_to_pil_pages(document_path: Path, mime_type: str | None) -> list[A
             for page in pdf:
                 pixmap = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
                 pages.append(Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples))
-
         return pages
 
     with Image.open(document_path) as image:
         return [image.convert("RGB").copy()]
-
-
-def _get_question_starts(
-    elements: list[Any],
-    page_images: list[Any],
-    global_page_offset: int,
-) -> list[QuestionStartState]:
-    question_starts: list[QuestionStartState] = []
-
-    for element in elements:
-        question_number = _extract_question_number(_get_element_text(element))
-        if question_number is None:
-            continue
-
-        metadata = getattr(element, "metadata", None)
-        page_number = int(getattr(metadata, "page_number", 1) or 1)
-        local_page_index = page_number - 1
-
-        if local_page_index < 0 or local_page_index >= len(page_images):
-            continue
-
-        box = _extract_element_box(element, page_images[local_page_index])
-        question_starts.append(
-            {
-                "question_number": question_number,
-                "page_index": global_page_offset + local_page_index,
-                "y": box[1] if box else 0,
-                "text": _get_element_text(element)[:180],
-            }
-        )
-
-    sorted_starts = sorted(question_starts, key=lambda item: (item["page_index"], item["y"], item["question_number"]))
-    deduped: list[QuestionStartState] = []
-    seen_numbers: set[int] = set()
-
-    for question_start in sorted_starts:
-        question_number = question_start["question_number"]
-        if question_number in seen_numbers:
-            continue
-
-        seen_numbers.add(question_number)
-        deduped.append(question_start)
-
-    return deduped
-
-
-def _extract_question_number(text: str) -> int | None:
-    for line in text.splitlines():
-        normalized_line = line.strip()
-        if not normalized_line:
-            continue
-
-        match = QUESTION_START_PATTERN.match(normalized_line)
-        if not match:
-            continue
-
-        question_number = int(match.group(1))
-        if 0 < question_number <= 300:
-            return question_number
-
-    return None
-
-
-def _get_element_text(element: Any) -> str:
-    text = getattr(element, "text", None)
-    if text:
-        return str(text).strip()
-
-    return str(element).strip()
 
 
 def _build_question_boundary_hints(
@@ -311,73 +541,6 @@ def _is_box_inside_question_span(
     return box_position < next_start_position
 
 
-def _get_visual_boxes_by_page(
-    elements: list[Any],
-    page_images: list[Any],
-) -> dict[int, list[tuple[float, float, float, float]]]:
-    boxes_by_page: dict[int, list[tuple[float, float, float, float]]] = defaultdict(list)
-
-    for element in elements:
-        category = getattr(element, "category", None) or element.__class__.__name__
-        if str(category) not in VISUAL_ELEMENT_CATEGORIES:
-            continue
-
-        metadata = getattr(element, "metadata", None)
-        page_number = int(getattr(metadata, "page_number", 1) or 1)
-        local_page_index = page_number - 1
-
-        if local_page_index < 0 or local_page_index >= len(page_images):
-            continue
-
-        box = _extract_element_box(element, page_images[local_page_index])
-        if box is not None:
-            boxes_by_page[local_page_index].append(box)
-
-    return boxes_by_page
-
-
-def _extract_element_box(element: Any, page_image: Any) -> tuple[float, float, float, float] | None:
-    metadata = getattr(element, "metadata", None)
-    coordinates = getattr(metadata, "coordinates", None)
-    points = getattr(coordinates, "points", None)
-
-    if not points:
-        return None
-
-    x_values = [float(point[0]) for point in points]
-    y_values = [float(point[1]) for point in points]
-    raw_box = (min(x_values), min(y_values), max(x_values), max(y_values))
-    system = getattr(coordinates, "system", None)
-
-    if isinstance(system, dict):
-        source_width = system.get("width")
-        source_height = system.get("height")
-    else:
-        source_width = getattr(system, "width", None)
-        source_height = getattr(system, "height", None)
-
-    if source_width and source_height:
-        x_scale = page_image.width / float(source_width)
-        y_scale = page_image.height / float(source_height)
-        raw_box = (
-            raw_box[0] * x_scale,
-            raw_box[1] * y_scale,
-            raw_box[2] * x_scale,
-            raw_box[3] * y_scale,
-        )
-
-    x1, y1, x2, y2 = raw_box
-    x1 = max(0, min(x1, page_image.width))
-    y1 = max(0, min(y1, page_image.height))
-    x2 = max(0, min(x2, page_image.width))
-    y2 = max(0, min(y2, page_image.height))
-
-    if x2 - x1 < 8 or y2 - y1 < 8:
-        return None
-
-    return x1, y1, x2, y2
-
-
 def _draw_numbered_box(image: Any, box: tuple[float, float, float, float], box_id: int) -> None:
     from PIL import ImageDraw, ImageFont
 
@@ -409,6 +572,12 @@ def _draw_numbered_box(image: Any, box: tuple[float, float, float, float], box_i
         fill=(220, 38, 38),
     )
     draw.text((label_x + padding, label_y + padding), label, fill=(255, 255, 255), font=font)
+
+
+def _pil_image_to_jpeg_base64(image: Any) -> str:
+    with BytesIO() as output:
+        image.convert("RGB").save(output, format="JPEG", quality=92)
+        return base64.b64encode(output.getvalue()).decode("ascii")
 
 
 def _save_debug_question_boundary_hints(question_boundary_hints: list[str], exam_id: UUID) -> None:
@@ -446,9 +615,3 @@ def _save_debug_annotated_page(image: Any, exam_id: UUID, page_index: int) -> No
         logger.info("Saved annotated layout debug image: %s", output_path)
     except OSError:
         logger.exception("Failed to save annotated layout debug image for exam %s page %s", exam_id, page_index + 1)
-
-
-def _pil_image_to_jpeg_base64(image: Any) -> str:
-    with BytesIO() as output:
-        image.convert("RGB").save(output, format="JPEG", quality=92)
-        return base64.b64encode(output.getvalue()).decode("ascii")

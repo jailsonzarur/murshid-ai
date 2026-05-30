@@ -76,7 +76,7 @@ const collaborationItems = [
   },
   {
     initials: 'RX',
-    name: 'Revisão OCR',
+    name: 'Revisão de provas',
     status: 'Em andamento',
     task: 'Validação de alternativas',
     tone: 'orange' as const,
@@ -85,7 +85,7 @@ const collaborationItems = [
 
 const projectItems = [
   { date: 'Mai 10, 2026', icon: '+', name: 'Upload de prova', tone: 'blue' as const },
-  { date: 'Mai 10, 2026', icon: '~', name: 'Processamento OCR', tone: 'cyan' as const },
+  { date: 'Mai 10, 2026', icon: '~', name: 'Processamento de prova', tone: 'cyan' as const },
   { date: 'Mai 11, 2026', icon: '*', name: 'Revisão de questões', tone: 'emerald' as const },
   { date: 'Mai 12, 2026', icon: '!', name: 'Exportação final', tone: 'amber' as const },
   { date: 'Mai 12, 2026', icon: '?', name: 'Conferência manual', tone: 'purple' as const },
@@ -157,7 +157,7 @@ export function DashboardPage() {
       description={
         isLoadingProfile
           ? 'Carregando seu ambiente de trabalho.'
-          : `Planeje, priorize e acompanhe suas tarefas de OCR com facilidade.${profile?.name ? ` Bem-vindo, ${profile.name}.` : ''}`
+          : `Planeje, priorize e acompanhe seus estudos com facilidade.${profile?.name ? ` Bem-vindo, ${profile.name}.` : ''}`
       }
       searchPlaceholder="Buscar tarefa"
       title="Painel"

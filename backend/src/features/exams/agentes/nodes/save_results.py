@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 from collections import defaultdict
 from io import BytesIO
+from typing import Any
 
 from src.features.exams.agentes.state import ExamProcessingState, LayoutElementState
 from src.features.files.services.bucket_service import MinioBucketService, get_bucket_service
@@ -52,8 +53,9 @@ def _crop_and_upload_question_image(
     with Image.open(BytesIO(base64.b64decode(original_pages_base64[page_index]))) as image:
         original_page = image.convert("RGB").copy()
 
-    x1, y1, x2, y2 = merged_box
-    padding = max(12, round(min(original_page.width, original_page.height) * 0.015))
+    refined_box = _refine_bbox_by_content(original_page, merged_box)
+    x1, y1, x2, y2 = refined_box
+    padding = max(8, round(min(original_page.width, original_page.height) * 0.008))
     cropped_image = original_page.crop(
         (
             max(0, round(x1) - padding),
@@ -75,6 +77,45 @@ def _crop_and_upload_question_image(
     )
 
     return uploaded.file_url
+
+
+def _refine_bbox_by_content(
+    image: Any,
+    rough_bbox: tuple[float, float, float, float],
+    *,
+    expansion: float = 0.12,
+    bg_threshold: int = 240,
+) -> tuple[float, float, float, float]:
+    """Expand the rough GPT-4o bbox and trim to actual content pixel boundaries."""
+    from PIL import ImageOps
+
+    w, h = image.width, image.height
+    x1, y1, x2, y2 = rough_bbox
+
+    margin_x = max(20.0, (x2 - x1) * expansion)
+    margin_y = max(20.0, (y2 - y1) * expansion)
+    exp_x1 = max(0, int(x1 - margin_x))
+    exp_y1 = max(0, int(y1 - margin_y))
+    exp_x2 = min(w, int(x2 + margin_x))
+    exp_y2 = min(h, int(y2 + margin_y))
+
+    # Binarize: dark content → black (0), light background → white (255)
+    expanded_crop = image.crop((exp_x1, exp_y1, exp_x2, exp_y2)).convert("L")
+    binary = expanded_crop.point(lambda p: 0 if p < bg_threshold else 255, "L")
+
+    # getbbox() finds bbox of non-black region; invert so content is white
+    content_bbox = ImageOps.invert(binary).getbbox()
+
+    if content_bbox is None:
+        return (float(exp_x1), float(exp_y1), float(exp_x2), float(exp_y2))
+
+    cx1, cy1, cx2, cy2 = content_bbox
+    return (
+        float(exp_x1 + cx1),
+        float(exp_y1 + cy1),
+        float(exp_x1 + cx2),
+        float(exp_y1 + cy2),
+    )
 
 
 def _get_merged_box_for_ids(

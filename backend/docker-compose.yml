@@ -16,8 +16,9 @@ services:
       CELERY_RESULT_BACKEND: redis://redis:6379/0
       EXAM_LAYOUT_DEBUG_DIR: /app/tmp/exam-layout-debug
       EXAM_OCR_LANGUAGES: por,eng
-      EXAM_VISION_MODEL: gpt-4o
+      EXAM_LAYOUT_MODEL: gemini-2.5-flash
       EXAM_VISION_DEBUG_DIR: /tmp/exam-vision-debug
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
       DEV_RELOAD: "1"
       MINIO_PUBLIC_ENDPOINT: http://minio:9000
       BUCKET_PUBLIC_BASE_URL: http://localhost:9000
@@ -56,8 +57,9 @@ services:
       CELERY_RESULT_BACKEND: redis://redis:6379/0
       EXAM_LAYOUT_DEBUG_DIR: /app/tmp/exam-layout-debug
       EXAM_OCR_LANGUAGES: por,eng
-      EXAM_VISION_MODEL: gpt-4o
+      EXAM_LAYOUT_MODEL: gemini-2.5-flash
       EXAM_VISION_DEBUG_DIR: /tmp/exam-vision-debug
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
       DEV_RELOAD: "1"
       MINIO_PUBLIC_ENDPOINT: http://minio:9000
       BUCKET_PUBLIC_BASE_URL: http://localhost:9000
@@ -143,17 +145,24 @@ services:
       - "9001:9001"
     volumes:
       - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   minio-init:
     image: minio/mc:RELEASE.2025-04-16T18-13-26Z
     container_name: api_v2_minio_init
     depends_on:
-      - minio
+      minio:
+        condition: service_healthy
     entrypoint:
       [
         "sh",
         "-c",
-        "until mc alias set local http://minio:9000 minioadmin minioadmin; do sleep 2; done && mc mb --ignore-existing local/iasmim",
+        "mc alias set local http://minio:9000 minioadmin minioadmin && mc mb --ignore-existing local/iasmim",
       ]
 
 volumes:

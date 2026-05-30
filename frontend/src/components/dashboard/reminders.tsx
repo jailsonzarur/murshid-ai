@@ -8,7 +8,7 @@ export function Reminders() {
         <h2>Lembretes</h2>
       </div>
       <div className="widget-reminder-box">
-        <h3>Revisar fila OCR</h3>
+        <h3>Revisar provas pendentes</h3>
         <p>Horário: 14h às 16h.</p>
         <Button icon="video" size="sm">
           Iniciar reunião

@@ -122,8 +122,8 @@ export function AppShell({
   return (
     <div className="app">
       <Sidebar
-        brandLabel="IAsmim"
-        brandSubtitle="OCR médico"
+        brandLabel="Murshid"
+        brandSubtitle="Plataforma de estudo"
         sections={createNavigationSections(activeItem, handleNavigate, handleLogout)}
       />
 

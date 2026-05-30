@@ -116,6 +116,7 @@ class MinioBucketService:
         client: Any,
         bucket_name: str,
         public_base_url: str = "",
+        presigned_client: Any = None,
     ) -> None:
         if not bucket_name:
             raise BucketConfigurationError("BUCKET_NAME is required")
@@ -123,6 +124,9 @@ class MinioBucketService:
         self.client = client
         self.bucket_name = bucket_name
         self.public_base_url = public_base_url.rstrip("/")
+        # Separate client whose endpoint matches public_base_url so presigned
+        # URL signatures are valid when the browser hits the public address.
+        self._presigned_client = presigned_client or client
 
     def upload(
         self,
@@ -244,7 +248,9 @@ class MinioBucketService:
 
     def get_presigned_url(self, key_or_url: str, *, expires_in_seconds: int = 3600) -> str:
         object_key = self._extract_key(key_or_url)
-        return self.client.presigned_get_object(
+        # Use the presigned client (initialized with the public endpoint) so the
+        # AWS4 signature is bound to the host the browser will actually reach.
+        return self._presigned_client.presigned_get_object(
             self.bucket_name,
             object_key,
             expires=timedelta(seconds=expires_in_seconds),
@@ -288,19 +294,23 @@ class MinioBucketService:
         return str(code) if code else None
 
 
-def create_minio_client() -> Any:
-    endpoint_config = get_minio_endpoint_config()
+def _get_minio_credentials() -> tuple[str, str]:
     access_key_id = get_config_value(
         ("BUCKET_ACCESS_KEY_ID", "AWS_ACCESS_KEY_ID", "MINIO_ACCESS_KEY", "MINIO_ROOT_USER")
     )
     secret_access_key = get_config_value(
         ("BUCKET_SECRET_ACCESS_KEY", "AWS_SECRET_ACCESS_KEY", "MINIO_SECRET_KEY", "MINIO_ROOT_PASSWORD")
     )
-
     if not access_key_id:
         raise BucketConfigurationError("MINIO_ROOT_USER is required")
     if not secret_access_key:
         raise BucketConfigurationError("MINIO_ROOT_PASSWORD is required")
+    return access_key_id, secret_access_key
+
+
+def create_minio_client() -> Any:
+    endpoint_config = get_minio_endpoint_config()
+    access_key_id, secret_access_key = _get_minio_credentials()
 
     from minio import Minio
 
@@ -309,6 +319,28 @@ def create_minio_client() -> Any:
         access_key=access_key_id,
         secret_key=secret_access_key,
         secure=endpoint_config.secure,
+    )
+
+
+def _create_presigned_minio_client(public_base_url: str) -> Any:
+    """Client initialized with the public-facing endpoint for presigned URL generation.
+
+    Uses region="us-east-1" (MinIO's default) so the SDK never calls GetBucketLocation,
+    which would fail when this code runs inside Docker trying to reach localhost:9000.
+    """
+    parsed = urlparse(public_base_url)
+    endpoint = parsed.netloc or public_base_url.rstrip("/")
+    secure = parsed.scheme == "https"
+    access_key_id, secret_access_key = _get_minio_credentials()
+
+    from minio import Minio
+
+    return Minio(
+        endpoint,
+        access_key=access_key_id,
+        secret_key=secret_access_key,
+        secure=secure,
+        region="us-east-1",
     )
 
 
@@ -323,4 +355,5 @@ def get_bucket_service() -> MinioBucketService:
         client=create_minio_client(),
         bucket_name=bucket_name,
         public_base_url=public_base_url,
+        presigned_client=_create_presigned_minio_client(public_base_url) if public_base_url else None,
     )

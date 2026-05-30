@@ -34,8 +34,8 @@ const defaultSidebarItems: SidebarItem[] = [
 ]
 
 export function Sidebar({
-  brandLabel = 'IAsmim',
-  brandSubtitle = 'OCR de provas',
+  brandLabel = 'Murshid',
+  brandSubtitle = 'Plataforma de estudo',
   className,
   items = defaultSidebarItems,
   sections,

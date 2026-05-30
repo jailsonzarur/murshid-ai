@@ -13,14 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libglib2.0-0 \
     libgl1 \
-    libmagic1 \
     libsm6 \
     libxext6 \
-    poppler-data \
-    poppler-utils \
-    tesseract-ocr \
-    tesseract-ocr-por \
-    tesseract-ocr-script-latn \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:0.5.31 /uv /usr/local/bin/uv
@@ -29,9 +23,6 @@ COPY pyproject.toml uv.lock* ./
 RUN uv sync --frozen --no-cache --no-dev
 
 ENV HOME=/home/app \
-    HF_HOME=/home/app/.cache/huggingface \
-    HUGGINGFACE_HUB_CACHE=/home/app/.cache/huggingface/hub \
-    MPLCONFIGDIR=/home/app/.cache/matplotlib \
     PATH="/app/.venv/bin:${PATH}" \
     XDG_CACHE_HOME=/home/app/.cache
 
@@ -43,14 +34,9 @@ RUN chmod +x worker-entrypoint.sh \
     && adduser --system --ingroup app --home /home/app app \
     && mkdir -p \
         /home/app/.cache/fontconfig \
-        /home/app/.cache/huggingface \
-        /home/app/.cache/huggingface/hub \
-        /home/app/.cache/matplotlib \
         /tmp/uv-cache \
     && chown -R app:app /app /home/app /tmp/uv-cache
 
 USER app
-
-RUN python -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='unstructuredio/yolo_x_layout', filename='yolox_l0.05.onnx')"
 
 CMD ["./worker-entrypoint.sh"]

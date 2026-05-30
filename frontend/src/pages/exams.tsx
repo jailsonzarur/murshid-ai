@@ -351,7 +351,6 @@ export function ExamsPage() {
                     </span>
                   </div>
                   <div className="prova-tags">
-                    <Badge tone="outline">OCR</Badge>
                     <Badge tone="outline">Prova</Badge>
                   </div>
                 </div>
