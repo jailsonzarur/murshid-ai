@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 
 import { AppShell } from '../components/layout/app-shell'
-import { Badge, type BadgeTone } from '../components/ui/badge'
+import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { EmptyState } from '../components/ui/empty-state'
@@ -30,13 +30,6 @@ const statusLabels: Record<ExamListItem['status'], string> = {
   PROCESSING: 'Processando',
   COMPLETED: 'Concluída',
   FAILED: 'Falhou',
-}
-
-const statusTones: Record<ExamListItem['status'], BadgeTone> = {
-  PENDING: 'orange',
-  PROCESSING: 'blue',
-  COMPLETED: 'green',
-  FAILED: 'neutral',
 }
 
 const statusFilters: Array<{ label: string; value: StatusFilter }> = [
@@ -275,37 +268,63 @@ export function ExamsPage() {
     }
   }
 
+  const avatarColors = ['purple', 'blue', 'orange', 'pink', 'yellow'] as const
+
   return (
     <AppShell
-      actions={
-        <Button icon="plus" onClick={() => setIsModalOpen(true)}>
-          Gerar prova
-        </Button>
-      }
       activeItem="exams"
-      description="Envie arquivos, monitore status e abra provas processadas."
-      searchPlaceholder="Buscar provas..."
-      title="Provas"
+      searchPlaceholder="Buscar por nome, disciplina ou assunto..."
     >
+      {/* Compact hero */}
+      <div className="hero compact">
+        <div className="hero-grain" />
+        <span className="hero-orb h1" />
+        <div className="hero-content">
+          <div className="hero-left">
+            <div className="hero-eyebrow">
+              <span className="eyebrow-dot" />
+              Biblioteca · {statusCounts.ALL} provas
+            </div>
+            <h1 className="hero-title">Provas</h1>
+            <p className="hero-sub">
+              Envie materiais, monitore o processamento e abra suas provas.
+              Cada uma é uma sessão revisável com flashcards e estatísticas vinculadas.
+            </p>
+          </div>
+          <div className="hero-actions">
+            <button className="btn btn-glass" onClick={() => setIsModalOpen(true)} type="button">
+              <Icon name="upload" size={14} />
+              <span>Importar arquivo</span>
+            </button>
+            <button className="btn btn-light" onClick={() => setIsModalOpen(true)} type="button">
+              <Icon name="plus" size={14} />
+              <span>Gerar prova</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <section aria-label="Banco de provas">
-        <div className="exams-toolbar">
-          <div className="exams-search">
-            <Input
+        <div className="toolbar">
+          <div className="search-inline" style={{ flex: 1, maxWidth: 480 }}>
+            <Icon name="search" size={16} style={{ color: 'var(--ink-4)', flexShrink: 0 }} />
+            <input
               aria-label="Buscar prova"
-              icon="search"
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Buscar por nome ou assunto"
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar por nome ou assunto..."
+              style={{ flex: 1, border: 0, outline: 'none', background: 'transparent', fontSize: 13.5 }}
               value={query}
             />
+            <kbd className="kbd">⌘ F</kbd>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <Button icon="filter" variant="outline">
-              Filter
-            </Button>
-            <Button icon="calendar" variant="outline">
-              Date
-            </Button>
-          </div>
+          <button className="btn btn-ghost" type="button">
+            <Icon name="filter" size={14} />
+            <span>Filtros</span>
+          </button>
+          <button className="btn btn-ghost" type="button">
+            <Icon name="calendar" size={14} />
+            <span>Data</span>
+          </button>
         </div>
 
         <div className="tabs" aria-label="Filtrar por status">
@@ -320,6 +339,11 @@ export function ExamsPage() {
               <span className="tab-count">{statusCounts[filter.value]}</span>
             </button>
           ))}
+          <div style={{ flex: 1 }} />
+          <button className="chip-select" type="button">
+            <span>Mais recentes</span>
+            <Icon name="chevronDown" size={11} />
+          </button>
         </div>
 
         {isLoading ? (
@@ -329,84 +353,105 @@ export function ExamsPage() {
           />
         ) : filteredExams.length ? (
           <div className="prova-list">
-            {filteredExams.map((exam, index) => (
-              <div className="prova-row" key={exam.id}>
-                <span className="prova-num">{String(index + 1).padStart(2, '0')}</span>
-                <div className="exam-row-icon">
-                  <Icon name="fileText" size={18} />
-                </div>
-                <div>
-                  <button
-                    className="prova-title"
-                    onClick={() => handleOpenExam(exam)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit', textAlign: 'left' }}
-                    type="button"
+            {filteredExams.map((exam, index) => {
+              const color = avatarColors[index % avatarColors.length]
+              const initial = exam.name.trim().charAt(0).toUpperCase()
+              return (
+                <div className="prova-row" key={exam.id}>
+                  <div
+                    className="check"
+                    aria-label="Selecionar prova"
+                    role="checkbox"
+                    aria-checked="false"
+                    tabIndex={0}
                   >
-                    {exam.name}
-                  </button>
-                  <div className="prova-sub">
-                    <span>
-                      <Icon name="tag" size={13} />
-                      {exam.general_subject ?? 'Sem assunto'}
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>
+                  </div>
+                  <div
+                    className={`avatar ${color}`}
+                    style={{ width: 44, height: 44, borderRadius: 12, fontSize: 16, flexShrink: 0 }}
+                    aria-hidden="true"
+                  >
+                    {initial}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 2 }}>
+                      <span className="prova-num">PROVA-{String(index + 1).padStart(3, '0')}</span>
+                      <span style={{ fontSize: 10, color: 'var(--ink-5)' }}>·</span>
+                      <span style={{ fontSize: 11.5, color: 'var(--ink-4)', fontWeight: 500 }}>
+                        {formatDate(exam.created_at)}
+                      </span>
+                    </div>
+                    <button
+                      className="prova-title"
+                      onClick={() => handleOpenExam(exam)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit', textAlign: 'left', display: 'block' }}
+                      type="button"
+                    >
+                      {exam.name}
+                    </button>
+                    <div className="prova-sub">
+                      <span>
+                        <Icon name="tag" size={11} />
+                        {exam.general_subject ?? 'Sem assunto'}
+                      </span>
+                      <span>
+                        <Icon name="fileText" size={11} />
+                        {exam.documents_count} {exam.documents_count === 1 ? 'arquivo' : 'arquivos'}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="cell-label">Data</div>
+                    <div className="cell-value">{formatDate(exam.created_at)}</div>
+                  </div>
+                  <div>
+                    <div className="cell-label">Arquivos</div>
+                    <div className="cell-value mono">{exam.documents_count}</div>
+                  </div>
+                  <div>
+                    <div className="cell-label">Status</div>
+                    <span className={`pill ${exam.status === 'COMPLETED' ? 'pill-ok' : exam.status === 'PROCESSING' ? 'pill-warn' : exam.status === 'FAILED' ? 'pill-danger' : 'pill-mute'}`}>
+                      {statusLabels[exam.status]}
                     </span>
                   </div>
-                  <div className="prova-tags">
-                    <Badge tone="outline">Prova</Badge>
+                  <div className="row-actions">
+                    <a
+                      aria-label={`Abrir prova ${exam.name}`}
+                      className="icon-btn"
+                      href={exam.status === 'COMPLETED' ? '#' : `/exams/${exam.id}`}
+                      onClick={(event) => {
+                        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+                        event.preventDefault()
+                        void handleOpenExam(exam)
+                      }}
+                      title="Abrir prova"
+                    >
+                      <Icon name="eye" size={15} />
+                    </a>
+                    <button
+                      aria-label={`Histórico de resoluções de ${exam.name}`}
+                      className="icon-btn"
+                      disabled={exam.status !== 'COMPLETED'}
+                      onClick={() => handleOpenHistory(exam)}
+                      title="Histórico de resoluções"
+                      type="button"
+                    >
+                      <Icon name="listChecks" size={15} />
+                    </button>
+                    <button
+                      aria-label={`Excluir prova ${exam.name}`}
+                      className="icon-btn danger"
+                      onClick={() => setExamToDelete(exam)}
+                      title="Excluir prova"
+                      type="button"
+                    >
+                      <Icon name="trash" size={15} />
+                    </button>
                   </div>
                 </div>
-                <div>
-                  <div className="cell-label">Status</div>
-                  <div className="cell-value">
-                    <Badge tone={statusTones[exam.status]}>{statusLabels[exam.status]}</Badge>
-                  </div>
-                </div>
-                <div>
-                  <div className="cell-label">Data</div>
-                  <div className="cell-value">{formatDate(exam.created_at)}</div>
-                </div>
-                <div>
-                  <div className="cell-label">Arquivos</div>
-                  <div className="cell-value mono">{exam.documents_count}</div>
-                </div>
-                <div className="row-actions">
-                  <a
-                    aria-label={`Abrir prova ${exam.name}`}
-                    className="icon-btn blue"
-                    href={exam.status === 'COMPLETED' ? '#' : `/exams/${exam.id}`}
-                    onClick={(event) => {
-                      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
-                        return
-                      }
-
-                      event.preventDefault()
-                      void handleOpenExam(exam)
-                    }}
-                    title="Abrir prova"
-                  >
-                    <Icon name="eye" size={15} />
-                  </a>
-                  <button
-                    aria-label={`Histórico de resoluções de ${exam.name}`}
-                    className="icon-btn"
-                    disabled={exam.status !== 'COMPLETED'}
-                    onClick={() => handleOpenHistory(exam)}
-                    title="Histórico de resoluções"
-                    type="button"
-                  >
-                    <Icon name="listChecks" size={15} />
-                  </button>
-                  <button
-                    aria-label={`Excluir prova ${exam.name}`}
-                    className="icon-btn danger"
-                    onClick={() => setExamToDelete(exam)}
-                    title="Excluir prova"
-                    type="button"
-                  >
-                    <Icon name="trash" size={15} />
-                  </button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <EmptyState
@@ -414,6 +459,13 @@ export function ExamsPage() {
             title="Nenhuma prova encontrada."
           />
         )}
+
+        {filteredExams.length > 0 ? (
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 14, fontSize: 12, color: 'var(--ink-4)', fontWeight: 500 }}>
+            <span>Mostrando {filteredExams.length} de {exams.length} provas</span>
+            <span>Atualizado agora</span>
+          </div>
+        ) : null}
       </section>
 
       {isModalOpen ? (

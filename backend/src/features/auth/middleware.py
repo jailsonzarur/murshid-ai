@@ -5,8 +5,8 @@ from starlette.responses import JSONResponse
 
 from src.database import AsyncSessionLocal
 from src.features.auth.utils import get_user_from_request
-from src.shared.enums.enums import UserRole
 from src.features.users.services.user_service import get_user_model_by_id_from_new_session
+from src.shared.enums.enums import UserRole
 
 PUBLIC_ROUTES = {
     ("GET", "/health"),

@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.database import get_db
 from src.features.auth.schemas.auth_schemas import UserSchema
 from src.features.auth.services.auth_service import get_user_profile
-from src.shared.schemas.http import ErrorResponse, SuccessResponse
 from src.features.auth.utils import CurrentUser, get_current_user
+from src.shared.schemas.http import ErrorResponse, SuccessResponse
 
 router = APIRouter()
 

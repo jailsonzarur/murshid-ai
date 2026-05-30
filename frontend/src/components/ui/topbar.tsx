@@ -4,6 +4,7 @@ import { cn } from '../../lib/cn'
 import { Icon } from './icon'
 
 export type TopbarProps = HTMLAttributes<HTMLElement> & {
+  onGenerateExam?: () => void
   onLogout?: () => void | Promise<void>
   onMenuClick?: () => void
   searchPlaceholder?: string
@@ -25,6 +26,7 @@ function getInitials(name: string) {
 
 export function Topbar({
   className,
+  onGenerateExam,
   onMenuClick,
   onLogout,
   searchPlaceholder = 'Buscar provas, usuários e análises...',
@@ -72,7 +74,21 @@ export function Topbar({
         <kbd className="kbd">Ctrl F</kbd>
       </label>
 
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <div style={{ flex: 1 }} />
+
+      {onGenerateExam ? (
+        <button
+          className="btn btn-primary btn-sm"
+          onClick={onGenerateExam}
+          style={{ paddingLeft: 12, paddingRight: 14, gap: 6 }}
+          type="button"
+        >
+          <Icon name="sparkles" size={13} />
+          <span>Gerar prova</span>
+        </button>
+      ) : null}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
         <button aria-label="Mensagens" className="icon-btn" type="button">
           <Icon name="mail" size={17} />
         </button>

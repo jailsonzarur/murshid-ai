@@ -18,10 +18,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import StaticPool  # noqa: E402
 
 from src.database import Base, get_db  # noqa: E402
+from src.features.auth.utils import create_access_token, hash_password  # noqa: E402
 from src.features.users.models import UserModel  # noqa: E402
 from src.main import app  # noqa: E402
 from src.shared.enums.enums import UserRole  # noqa: E402
-from src.features.auth.utils import create_access_token, hash_password  # noqa: E402
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 

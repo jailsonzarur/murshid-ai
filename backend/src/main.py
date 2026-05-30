@@ -10,10 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.config import ALLOWED_ORIGINS
 from src.database import close_db, get_db, init_db
 from src.features.auth import router as auth_router
+from src.features.auth.middleware import PermissionMiddleware
 from src.features.exams import router as exams_router
 from src.features.resolutions import router as resolutions_router
 from src.features.users import router as users_router
-from src.features.auth.middleware import PermissionMiddleware
 from src.shared.utils.error_handler import http_exception_handler, validation_exception_handler
 
 logger = logging.getLogger(__name__)

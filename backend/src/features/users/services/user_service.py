@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import AsyncSessionLocal
+from src.features.auth.utils import hash_password
 from src.features.users.models import UserModel
 from src.features.users.schemas.user_schemas import (
     CreateUserSchema,
@@ -12,7 +13,6 @@ from src.features.users.schemas.user_schemas import (
     UpdateUserSchema,
     UserListSchema,
 )
-from src.features.auth.utils import hash_password
 
 
 async def list_users(db: AsyncSession) -> list[UserListSchema]:
