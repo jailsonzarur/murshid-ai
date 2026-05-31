@@ -3,13 +3,21 @@ from typing import Any, cast
 from uuid import UUID
 
 from fastapi import HTTPException, UploadFile, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from src.database import AsyncSessionLocal
 from src.features.exams.agentes.state import OriginalDocumentState
 from src.features.exams.models import ExamDocumentModel, ExamModel, ExamStatus
+from src.features.exams.repository import (
+    add_exam,
+    add_exam_document,
+    get_all_exams,
+    get_exam_by_id,
+    get_exam_for_delete,
+    get_exam_with_documents,
+    get_exam_with_questions,
+    remove_exam,
+)
 from src.features.exams.schemas.exam_schemas import (
     ExamListSchema,
     ExamUploadFormSchema,
@@ -17,13 +25,12 @@ from src.features.exams.schemas.exam_schemas import (
     ExamViewerQuestionSchema,
 )
 from src.features.files.services.bucket_service import get_bucket_service
-from src.features.questions.models import QuestionModel
 
 ALLOWED_EXAM_MIME_TYPES = {"image/jpeg", "image/png", "application/pdf"}
 
 
 async def list_exams(db: AsyncSession) -> list[ExamListSchema]:
-    exams = await get_all_exam_models(db)
+    exams = await get_all_exams(db)
 
     return [
         ExamListSchema(
@@ -40,7 +47,7 @@ async def list_exams(db: AsyncSession) -> list[ExamListSchema]:
 
 
 async def list_exam_questions(db: AsyncSession, exam_id: UUID) -> list[ExamViewerQuestionSchema]:
-    exam = await get_exam_model_with_questions(db, exam_id)
+    exam = await get_exam_with_questions(db, exam_id)
 
     if exam is None:
         raise HTTPException(
@@ -106,7 +113,7 @@ async def create_exam_and_dispatch_task(
     ordered_files.sort(key=lambda item: item[0])
 
     try:
-        exam = await create_exam_model(db, ExamModel(name=payload.name, general_subject=payload.general_subject))
+        exam = await add_exam(db, ExamModel(name=payload.name, general_subject=payload.general_subject))
 
         for page_order, file, original_name in ordered_files:
             mime_type = file.content_type
@@ -136,7 +143,7 @@ async def create_exam_and_dispatch_task(
             )
             uploaded_file_urls.append(uploaded.file_url)
 
-            add_exam_document_model(
+            add_exam_document(
                 db,
                 ExamDocumentModel(
                     exam_id=exam.id,
@@ -158,20 +165,20 @@ async def create_exam_and_dispatch_task(
                     },
                 )
 
-        await commit_exam_transaction(db)
-        await refresh_exam_model(db, exam)
+        await db.commit()
+        await db.refresh(exam)
 
         from src.features.exams.tasks import process_exam_task
 
         cast(Any, process_exam_task).delay(str(exam.id))
         return exam
     except Exception:
-        await rollback_exam_transaction(db)
+        await db.rollback()
         raise
 
 
 async def delete_exam(db: AsyncSession, exam_id: UUID) -> None:
-    exam = await get_exam_model_for_delete(db, exam_id)
+    exam = await get_exam_for_delete(db, exam_id)
 
     if exam is None:
         raise HTTPException(
@@ -184,10 +191,10 @@ async def delete_exam(db: AsyncSession, exam_id: UUID) -> None:
 
     try:
         bucket_service.delete_many(bucket_urls)
-        await delete_exam_model(db, exam)
-        await commit_exam_transaction(db)
+        await remove_exam(db, exam)
+        await db.commit()
     except Exception:
-        await rollback_exam_transaction(db)
+        await db.rollback()
         raise
 
 
@@ -203,7 +210,7 @@ def _get_exam_bucket_urls(exam: ExamModel) -> list[str]:
 
 async def mark_exam_as_processing_and_get_documents(exam_id: UUID) -> list[OriginalDocumentState]:
     async with AsyncSessionLocal() as db:
-        exam = await get_exam_model_with_documents(db, exam_id)
+        exam = await get_exam_with_documents(db, exam_id)
 
         if exam is None:
             raise ValueError(f"Exam not found: {exam_id}")
@@ -225,7 +232,7 @@ async def mark_exam_as_processing_and_get_documents(exam_id: UUID) -> list[Origi
 
 async def set_exam_status(exam_id: UUID, status: ExamStatus, *, error_log: str | None = None) -> None:
     async with AsyncSessionLocal() as db:
-        exam = await db.get(ExamModel, exam_id)
+        exam = await get_exam_by_id(db, exam_id)
 
         if exam is None:
             return
@@ -233,64 +240,3 @@ async def set_exam_status(exam_id: UUID, status: ExamStatus, *, error_log: str |
         exam.status = status
         exam.error_log = error_log
         await db.commit()
-
-
-async def get_all_exam_models(db: AsyncSession) -> list[ExamModel]:
-    result = await db.execute(
-        select(ExamModel).options(selectinload(ExamModel.documents)).order_by(ExamModel.created_at.desc())
-    )
-    return list(result.scalars().all())
-
-
-async def get_exam_model_with_documents(db: AsyncSession, exam_id: UUID) -> ExamModel | None:
-    result = await db.execute(
-        select(ExamModel).options(selectinload(ExamModel.documents)).where(ExamModel.id == exam_id)
-    )
-    return result.scalar_one_or_none()
-
-
-async def get_exam_model_for_delete(db: AsyncSession, exam_id: UUID) -> ExamModel | None:
-    result = await db.execute(
-        select(ExamModel)
-        .options(
-            selectinload(ExamModel.documents),
-            selectinload(ExamModel.questions).selectinload(QuestionModel.options),
-        )
-        .where(ExamModel.id == exam_id)
-    )
-    return result.scalar_one_or_none()
-
-
-async def get_exam_model_with_questions(db: AsyncSession, exam_id: UUID) -> ExamModel | None:
-    result = await db.execute(
-        select(ExamModel)
-        .options(selectinload(ExamModel.questions).selectinload(QuestionModel.options))
-        .where(ExamModel.id == exam_id)
-    )
-    return result.scalar_one_or_none()
-
-
-async def create_exam_model(db: AsyncSession, exam: ExamModel) -> ExamModel:
-    db.add(exam)
-    await db.flush()
-    return exam
-
-
-def add_exam_document_model(db: AsyncSession, document: ExamDocumentModel) -> None:
-    db.add(document)
-
-
-async def delete_exam_model(db: AsyncSession, exam: ExamModel) -> None:
-    await db.delete(exam)
-
-
-async def commit_exam_transaction(db: AsyncSession) -> None:
-    await db.commit()
-
-
-async def rollback_exam_transaction(db: AsyncSession) -> None:
-    await db.rollback()
-
-
-async def refresh_exam_model(db: AsyncSession, exam: ExamModel) -> None:
-    await db.refresh(exam)

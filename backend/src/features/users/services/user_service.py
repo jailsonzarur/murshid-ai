@@ -1,12 +1,17 @@
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database import AsyncSessionLocal
 from src.features.auth.utils import hash_password
 from src.features.users.models import UserModel
+from src.features.users.repository import (
+    add_user,
+    get_user_by_id,
+    list_all_users,
+    remove_user,
+    user_exists_by_email,
+)
 from src.features.users.schemas.user_schemas import (
     CreateUserSchema,
     UpdateUserRoleSchema,
@@ -16,7 +21,7 @@ from src.features.users.schemas.user_schemas import (
 
 
 async def list_users(db: AsyncSession) -> list[UserListSchema]:
-    users = await get_all_user_models(db)
+    users = await list_all_users(db)
     return [UserListSchema.model_validate(user) for user in users]
 
 
@@ -28,7 +33,7 @@ async def create_user(db: AsyncSession, data: CreateUserSchema) -> None:
         )
 
     user = UserModel(name=data.name, email=data.email.lower(), password=hash_password(data.password), role=data.role)
-    db.add(user)
+    add_user(db, user)
     await db.commit()
 
 
@@ -39,14 +44,14 @@ async def create_user_with_hashed_password(
     hashed_password: str,
 ) -> UserModel:
     user = UserModel(name=name, email=email.lower(), password=hashed_password)
-    db.add(user)
+    add_user(db, user)
     await db.commit()
     await db.refresh(user)
     return user
 
 
 async def update_user(db: AsyncSession, user_id: UUID, data: UpdateUserSchema) -> None:
-    user = await get_user_model_by_id(db, user_id)
+    user = await get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(
             status_code=404,
@@ -71,7 +76,7 @@ async def update_user(db: AsyncSession, user_id: UUID, data: UpdateUserSchema) -
 
 
 async def update_role(db: AsyncSession, user_id: UUID, data: UpdateUserRoleSchema) -> None:
-    user = await get_user_model_by_id(db, user_id)
+    user = await get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(
             status_code=404,
@@ -88,41 +93,12 @@ async def delete_user(db: AsyncSession, user_id: UUID, current_user_id: UUID) ->
             detail={"success": False, "errors": ["Não é possível excluir a si mesmo."], "data": None},
         )
 
-    user = await get_user_model_by_id(db, user_id)
+    user = await get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(
             status_code=404,
             detail={"success": False, "errors": ["Usuário não encontrado."], "data": None},
         )
 
-    await db.delete(user)
+    await remove_user(db, user)
     await db.commit()
-
-
-async def get_user_model_by_id(db: AsyncSession, user_id: UUID) -> UserModel | None:
-    result = await db.execute(select(UserModel).where(UserModel.id == user_id))
-    return result.scalar_one_or_none()
-
-
-async def get_user_model_by_id_from_new_session(user_id: UUID, session_factory=AsyncSessionLocal) -> UserModel | None:
-    async with session_factory() as db:
-        return await get_user_model_by_id(db, user_id)
-
-
-async def get_all_user_models(db: AsyncSession) -> list[UserModel]:
-    result = await db.execute(select(UserModel).order_by(UserModel.name))
-    return list(result.scalars().all())
-
-
-async def get_user_model_by_email(db: AsyncSession, email: str) -> UserModel | None:
-    result = await db.execute(select(UserModel).where(UserModel.email == email.lower()))
-    return result.scalar_one_or_none()
-
-
-async def user_exists_by_email(db: AsyncSession, email: str, exclude_id: UUID | None = None) -> bool:
-    stmt = select(UserModel).where(UserModel.email == email.lower())
-    if exclude_id is not None:
-        stmt = stmt.where(UserModel.id != exclude_id)
-
-    result = await db.execute(stmt)
-    return result.scalar_one_or_none() is not None

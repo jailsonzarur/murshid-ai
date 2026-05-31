@@ -124,6 +124,7 @@ export function ResolutionViewerPage() {
   const [detail, setDetail] = useState<ResolutionDetail | null>(null)
   const [answers, setAnswers] = useState<ExamAnswers>({})
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [questionAnimDir, setQuestionAnimDir] = useState<'forward' | 'backward'>('forward')
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -415,6 +416,7 @@ export function ResolutionViewerPage() {
   }
 
   async function goToPreviousQuestion() {
+    setQuestionAnimDir('backward')
     await saveCurrentAnswer()
     setCurrentIndex((index) => Math.max(index - 1, 0))
   }
@@ -425,6 +427,7 @@ export function ResolutionViewerPage() {
       return
     }
 
+    setQuestionAnimDir('forward')
     await saveCurrentAnswer()
     setCurrentIndex((index) => Math.min(index + 1, (detail?.questions.length ?? 1) - 1))
   }
@@ -732,6 +735,7 @@ export function ResolutionViewerPage() {
                     className={cls}
                     key={item.question.id}
                     onClick={async () => {
+                      setQuestionAnimDir(index > currentIndex ? 'forward' : 'backward')
                       await saveCurrentAnswer()
                       setCurrentIndex(index)
                     }}
@@ -744,14 +748,16 @@ export function ResolutionViewerPage() {
             </div>
 
             <div className="q-body">
-              <QuestionCard
-                currentAnswer={answers[currentQuestion.id]}
-                evaluation={currentQuestionDetail.response?.evaluation}
-                isReadOnly={isCurrentQuestionReadOnly}
-                onAnswerChange={handleAnswerChange}
-                question={currentQuestion}
-                showEvaluation={detail.can_show_evaluations}
-              />
+              <div className={`q-anim--${questionAnimDir}`} key={currentIndex}>
+                <QuestionCard
+                  currentAnswer={answers[currentQuestion.id]}
+                  evaluation={currentQuestionDetail.response?.evaluation}
+                  isReadOnly={isCurrentQuestionReadOnly}
+                  onAnswerChange={handleAnswerChange}
+                  question={currentQuestion}
+                  showEvaluation={detail.can_show_evaluations}
+                />
+              </div>
             </div>
 
             {detail.resolution.status === 'GRADED' ? (

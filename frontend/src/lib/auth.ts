@@ -91,3 +91,17 @@ export function clearAuthSession() {
   window.localStorage.removeItem(AUTH_STORAGE_KEY)
   window.sessionStorage.removeItem(AUTH_STORAGE_KEY)
 }
+
+export function isTokenExpired(): boolean {
+  const token = getAccessToken()
+  if (!token) return true
+
+  try {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+    const payload = JSON.parse(atob(base64)) as { exp?: number }
+    if (!payload.exp) return false
+    return Date.now() / 1000 > payload.exp
+  } catch {
+    return true
+  }
+}

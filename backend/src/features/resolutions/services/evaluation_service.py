@@ -7,12 +7,8 @@ from typing import Any, cast
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from src.features.exams.models import ExamModel
-from src.features.questions.models import QuestionModel
 from src.features.questions.services.question_evaluation_service import (
     EvaluationOption,
     UserAnswerItem,
@@ -20,13 +16,16 @@ from src.features.questions.services.question_evaluation_service import (
 )
 from src.features.resolutions.models import (
     ExamResolutionMode,
-    ExamResolutionModel,
     ExamResolutionResult,
     ExamResolutionStatus,
     QuestionResponseEvaluationModel,
-    QuestionResponseItemModel,
     QuestionResponseModel,
     ResponseEvaluationSource,
+)
+from src.features.resolutions.repository import (
+    get_question_response_for_evaluation,
+    get_resolution_for_evaluation,
+    replace_response_evaluation,
 )
 from src.features.resolutions.schemas.resolution_schemas import (
     QuestionResponseSchema,
@@ -54,7 +53,7 @@ async def evaluate_resolution_question(
     question_id: UUID,
     user_id: UUID,
 ) -> QuestionResponseSchema:
-    resolution = await get_resolution_model_for_evaluation(db, resolution_id=resolution_id, user_id=user_id)
+    resolution = await get_resolution_for_evaluation(db, resolution_id=resolution_id, user_id=user_id)
     if resolution is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -82,7 +81,7 @@ async def evaluate_resolution_question(
     await persist_response_evaluation(db, response, output)
     await db.commit()
 
-    refreshed_response = await get_question_response_model_for_evaluation(db, response.id)
+    refreshed_response = await get_question_response_for_evaluation(db, response.id)
     if refreshed_response is None:
         raise RuntimeError(f"Question response was not found after evaluation: {response.id}")
 
@@ -95,7 +94,7 @@ async def enqueue_resolution_evaluation(
     resolution_id: UUID,
     user_id: UUID,
 ) -> tuple[str, ResolutionSummarySchema]:
-    resolution = await get_resolution_model_for_evaluation(db, resolution_id=resolution_id, user_id=user_id)
+    resolution = await get_resolution_for_evaluation(db, resolution_id=resolution_id, user_id=user_id)
     if resolution is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -145,7 +144,7 @@ async def evaluate_resolution_responses(
     resolution_id: UUID,
     user_id: UUID,
 ) -> ResolutionSummarySchema:
-    resolution = await get_resolution_model_for_evaluation(db, resolution_id=resolution_id, user_id=user_id)
+    resolution = await get_resolution_for_evaluation(db, resolution_id=resolution_id, user_id=user_id)
     if resolution is None:
         raise RuntimeError(f"Resolution was not found for evaluation: {resolution_id}")
 
@@ -247,62 +246,14 @@ async def persist_response_evaluation(
     response: QuestionResponseModel,
     output: EvaluationOutput,
 ) -> None:
-    for evaluation in list(response.evaluations):
-        await db.delete(evaluation)
-
-    await db.flush()
     now = datetime.now(UTC)
-    db.add(
-        QuestionResponseEvaluationModel(
-            response_id=response.id,
-            score=output.score,
-            feedback=output.feedback,
-            evaluation_source=output.evaluation_source,
-            evaluated_at=now,
-            model_name=output.model_name,
-            raw_output=output.raw_output,
-        )
+    evaluation = QuestionResponseEvaluationModel(
+        response_id=response.id,
+        score=output.score,
+        feedback=output.feedback,
+        evaluation_source=output.evaluation_source,
+        evaluated_at=now,
+        model_name=output.model_name,
+        raw_output=output.raw_output,
     )
-
-async def get_resolution_model_for_evaluation(
-    db: AsyncSession,
-    *,
-    resolution_id: UUID,
-    user_id: UUID,
-) -> ExamResolutionModel | None:
-    result = await db.execute(
-        select(ExamResolutionModel)
-        .options(
-            selectinload(ExamResolutionModel.exam)
-            .selectinload(ExamModel.questions)
-            .selectinload(QuestionModel.options),
-            selectinload(ExamResolutionModel.responses)
-            .selectinload(QuestionResponseModel.items)
-            .selectinload(QuestionResponseItemModel.option),
-            selectinload(ExamResolutionModel.responses)
-            .selectinload(QuestionResponseModel.question)
-            .selectinload(QuestionModel.options),
-            selectinload(ExamResolutionModel.responses).selectinload(QuestionResponseModel.evaluations),
-        )
-        .where(
-            ExamResolutionModel.id == resolution_id,
-            ExamResolutionModel.user_id == user_id,
-        )
-    )
-    return result.scalar_one_or_none()
-
-
-async def get_question_response_model_for_evaluation(
-    db: AsyncSession,
-    response_id: UUID,
-) -> QuestionResponseModel | None:
-    result = await db.execute(
-        select(QuestionResponseModel)
-        .options(
-            selectinload(QuestionResponseModel.items),
-            selectinload(QuestionResponseModel.evaluations),
-        )
-        .where(QuestionResponseModel.id == response_id)
-        .execution_options(populate_existing=True)
-    )
-    return result.scalar_one_or_none()
+    await replace_response_evaluation(db, response, evaluation)

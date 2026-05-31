@@ -5,41 +5,47 @@ import { Icon } from './icon'
 
 type ToastItem = ToastPayload & {
   id: number
+  isExiting: boolean
 }
 
-const toastDuration = 5200
+const toastDuration = 5000
+const exitDuration = 300
 
 export function ToastViewport() {
   const [toasts, setToasts] = useState<ToastItem[]>([])
+
+  function startExiting(id: number) {
+    setToasts((current) =>
+      current.map((t) => (t.id === id ? { ...t, isExiting: true } : t)),
+    )
+    window.setTimeout(() => {
+      setToasts((current) => current.filter((t) => t.id !== id))
+    }, exitDuration)
+  }
 
   useEffect(() => {
     function handleToast(event: Event) {
       const payload = (event as CustomEvent<ToastPayload>).detail
       const id = Date.now() + Math.random()
 
-      setToasts((current) => [...current, { ...payload, id }])
-      window.setTimeout(() => {
-        setToasts((current) => current.filter((toast) => toast.id !== id))
-      }, toastDuration)
+      setToasts((current) => [...current, { ...payload, id, isExiting: false }])
+      window.setTimeout(() => startExiting(id), toastDuration)
     }
 
     window.addEventListener(TOAST_EVENT, handleToast)
-
-    return () => {
-      window.removeEventListener(TOAST_EVENT, handleToast)
-    }
+    return () => window.removeEventListener(TOAST_EVENT, handleToast)
   }, [])
 
-  function dismissToast(id: number) {
-    setToasts((current) => current.filter((toast) => toast.id !== id))
-  }
-
   return (
-    <div className="toast-viewport" aria-live="polite" aria-relevant="additions">
+    <div aria-live="polite" aria-relevant="additions" className="toast-viewport">
       {toasts.map((toast) => (
-        <div className={`toast-card toast-card--${toast.tone}`} key={toast.id} role="status">
+        <div
+          className={`toast-card toast-card--${toast.tone}${toast.isExiting ? ' toast-card--exiting' : ''}`}
+          key={toast.id}
+          role="status"
+        >
           <div className="toast-card__icon">
-            <Icon name={toast.tone === 'error' ? 'x' : 'alertTriangle'} size={16} />
+            <Icon name={toast.tone === 'error' ? 'x' : 'alertTriangle'} size={15} />
           </div>
           <div className="toast-card__content">
             <strong>{toast.title}</strong>
@@ -48,10 +54,10 @@ export function ToastViewport() {
           <button
             aria-label="Fechar aviso"
             className="toast-card__close"
-            onClick={() => dismissToast(toast.id)}
+            onClick={() => startExiting(toast.id)}
             type="button"
           >
-            <Icon name="x" size={14} />
+            <Icon name="x" size={13} />
           </button>
         </div>
       ))}

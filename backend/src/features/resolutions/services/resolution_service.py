@@ -5,11 +5,9 @@ from typing import overload
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from src.features.exams.models import ExamModel, ExamStatus
+from src.features.exams.models import ExamStatus
 from src.features.files.services.bucket_service import MinioBucketService, get_bucket_service
 from src.features.questions.models import QuestionModel, QuestionType
 from src.features.resolutions.models import (
@@ -19,6 +17,20 @@ from src.features.resolutions.models import (
     ExamResolutionStatus,
     QuestionResponseItemModel,
     QuestionResponseModel,
+)
+from src.features.resolutions.repository import (
+    add_resolution,
+    add_response,
+    add_response_item,
+    clear_response_history,
+    get_active_resolution as get_active_resolution_model,
+    get_exam_for_resolution,
+    get_question_response_by_id,
+    get_resolution_by_id,
+    get_resolution_for_answer,
+    get_resolution_for_detail,
+    get_resolution_for_submit,
+    list_resolutions_for_exam,
 )
 from src.features.resolutions.schemas.resolution_schemas import (
     CreateResolutionSchema,
@@ -35,10 +47,6 @@ from src.features.resolutions.schemas.resolution_schemas import (
     UpsertQuestionResponseSchema,
 )
 
-ACTIVE_RESOLUTION_STATUSES = {
-    ExamResolutionStatus.IN_PROGRESS,
-    ExamResolutionStatus.PAUSED,
-}
 PASSING_SCORE = 0.7
 
 
@@ -64,16 +72,8 @@ async def list_exam_resolutions(
     exam_id: UUID,
     user_id: UUID,
 ) -> list[ResolutionSummarySchema]:
-    result = await db.execute(
-        select(ExamResolutionModel)
-        .where(
-            ExamResolutionModel.exam_id == exam_id,
-            ExamResolutionModel.user_id == user_id,
-        )
-        .order_by(ExamResolutionModel.created_at.desc())
-    )
-
-    return [ResolutionSummarySchema.model_validate(resolution) for resolution in result.scalars().all()]
+    resolutions = await list_resolutions_for_exam(db, exam_id=exam_id, user_id=user_id)
+    return [ResolutionSummarySchema.model_validate(resolution) for resolution in resolutions]
 
 
 async def create_exam_resolution(
@@ -87,7 +87,7 @@ async def create_exam_resolution(
     if active_resolution is not None:
         return ResolutionSummarySchema.model_validate(active_resolution)
 
-    exam = await get_exam_model_for_resolution(db, exam_id)
+    exam = await get_exam_for_resolution(db, exam_id)
     if exam is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -116,7 +116,7 @@ async def create_exam_resolution(
         created_at=now,
         updated_at=now,
     )
-    db.add(resolution)
+    add_resolution(db, resolution)
     await db.commit()
     await db.refresh(resolution)
 
@@ -129,7 +129,7 @@ async def get_resolution_detail(
     resolution_id: UUID,
     user_id: UUID,
 ) -> ResolutionDetailSchema:
-    resolution = await get_resolution_model_for_detail(db, resolution_id=resolution_id, user_id=user_id)
+    resolution = await get_resolution_for_detail(db, resolution_id=resolution_id, user_id=user_id)
     if resolution is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -178,7 +178,7 @@ async def upsert_question_response(
     user_id: UUID,
     payload: UpsertQuestionResponseSchema,
 ) -> QuestionResponseSchema:
-    resolution = await get_resolution_model_for_answer(db, resolution_id=resolution_id, user_id=user_id)
+    resolution = await get_resolution_for_answer(db, resolution_id=resolution_id, user_id=user_id)
     if resolution is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -210,31 +210,27 @@ async def upsert_question_response(
             created_at=now,
             updated_at=now,
         )
-        db.add(response)
-        await db.flush()
+        await add_response(db, response)
     else:
         response.answered_at = now
         response.updated_at = now
-        for item in list(response.items):
-            await db.delete(item)
-        for evaluation in list(response.evaluations):
-            await db.delete(evaluation)
-        await db.flush()
+        await clear_response_history(db, response)
 
     for item in payload.items:
-        db.add(
+        add_response_item(
+            db,
             QuestionResponseItemModel(
                 response_id=response.id,
                 option_id=item.option_id,
                 text_answer=item.text_answer.strip() if item.text_answer else None,
                 created_at=now,
                 updated_at=now,
-            )
+            ),
         )
 
     await db.commit()
 
-    refreshed_response = await get_question_response_model(db, response.id)
+    refreshed_response = await get_question_response_by_id(db, response.id)
     if refreshed_response is None:
         raise RuntimeError(f"Question response was not found after save: {response.id}")
 
@@ -247,7 +243,7 @@ async def pause_resolution(
     resolution_id: UUID,
     user_id: UUID,
 ) -> ResolutionSummarySchema:
-    resolution = await get_resolution_model(db, resolution_id=resolution_id, user_id=user_id)
+    resolution = await get_resolution_by_id(db, resolution_id=resolution_id, user_id=user_id)
     if resolution is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -277,7 +273,7 @@ async def resume_resolution(
     resolution_id: UUID,
     user_id: UUID,
 ) -> ResolutionSummarySchema:
-    resolution = await get_resolution_model(db, resolution_id=resolution_id, user_id=user_id)
+    resolution = await get_resolution_by_id(db, resolution_id=resolution_id, user_id=user_id)
     if resolution is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -306,7 +302,7 @@ async def submit_resolution(
     resolution_id: UUID,
     user_id: UUID,
 ) -> ResolutionSubmitSchema:
-    resolution = await get_resolution_model_for_submit(db, resolution_id=resolution_id, user_id=user_id)
+    resolution = await get_resolution_for_submit(db, resolution_id=resolution_id, user_id=user_id)
     if resolution is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -343,129 +339,6 @@ async def submit_resolution(
     await db.refresh(resolution)
 
     return ResolutionSubmitSchema(resolution=ResolutionSummarySchema.model_validate(resolution))
-
-
-async def get_active_resolution_model(
-    db: AsyncSession,
-    *,
-    exam_id: UUID,
-    user_id: UUID,
-) -> ExamResolutionModel | None:
-    result = await db.execute(
-        select(ExamResolutionModel)
-        .where(
-            ExamResolutionModel.exam_id == exam_id,
-            ExamResolutionModel.user_id == user_id,
-            ExamResolutionModel.status.in_(ACTIVE_RESOLUTION_STATUSES),
-        )
-        .order_by(ExamResolutionModel.updated_at.desc())
-        .limit(1)
-    )
-    return result.scalar_one_or_none()
-
-
-async def get_exam_model_for_resolution(db: AsyncSession, exam_id: UUID) -> ExamModel | None:
-    result = await db.execute(
-        select(ExamModel)
-        .options(selectinload(ExamModel.questions).selectinload(QuestionModel.options))
-        .where(ExamModel.id == exam_id)
-    )
-    return result.scalar_one_or_none()
-
-
-async def get_resolution_model(
-    db: AsyncSession,
-    *,
-    resolution_id: UUID,
-    user_id: UUID,
-) -> ExamResolutionModel | None:
-    result = await db.execute(
-        select(ExamResolutionModel).where(
-            ExamResolutionModel.id == resolution_id,
-            ExamResolutionModel.user_id == user_id,
-        )
-    )
-    return result.scalar_one_or_none()
-
-
-async def get_resolution_model_for_submit(
-    db: AsyncSession,
-    *,
-    resolution_id: UUID,
-    user_id: UUID,
-) -> ExamResolutionModel | None:
-    result = await db.execute(
-        select(ExamResolutionModel)
-        .options(
-            selectinload(ExamResolutionModel.exam).selectinload(ExamModel.questions),
-            selectinload(ExamResolutionModel.responses).selectinload(QuestionResponseModel.evaluations),
-        )
-        .where(
-            ExamResolutionModel.id == resolution_id,
-            ExamResolutionModel.user_id == user_id,
-        )
-    )
-    return result.scalar_one_or_none()
-
-
-async def get_resolution_model_for_detail(
-    db: AsyncSession,
-    *,
-    resolution_id: UUID,
-    user_id: UUID,
-) -> ExamResolutionModel | None:
-    result = await db.execute(
-        select(ExamResolutionModel)
-        .options(
-            selectinload(ExamResolutionModel.exam)
-            .selectinload(ExamModel.questions)
-            .selectinload(QuestionModel.options),
-            selectinload(ExamResolutionModel.responses)
-            .selectinload(QuestionResponseModel.items)
-            .selectinload(QuestionResponseItemModel.option),
-            selectinload(ExamResolutionModel.responses).selectinload(QuestionResponseModel.evaluations),
-        )
-        .where(
-            ExamResolutionModel.id == resolution_id,
-            ExamResolutionModel.user_id == user_id,
-        )
-    )
-    return result.scalar_one_or_none()
-
-
-async def get_resolution_model_for_answer(
-    db: AsyncSession,
-    *,
-    resolution_id: UUID,
-    user_id: UUID,
-) -> ExamResolutionModel | None:
-    result = await db.execute(
-        select(ExamResolutionModel)
-        .options(
-            selectinload(ExamResolutionModel.exam)
-            .selectinload(ExamModel.questions)
-            .selectinload(QuestionModel.options),
-            selectinload(ExamResolutionModel.responses).selectinload(QuestionResponseModel.items),
-            selectinload(ExamResolutionModel.responses).selectinload(QuestionResponseModel.evaluations),
-        )
-        .where(
-            ExamResolutionModel.id == resolution_id,
-            ExamResolutionModel.user_id == user_id,
-        )
-    )
-    return result.scalar_one_or_none()
-
-
-async def get_question_response_model(db: AsyncSession, response_id: UUID) -> QuestionResponseModel | None:
-    result = await db.execute(
-        select(QuestionResponseModel)
-        .options(
-            selectinload(QuestionResponseModel.items),
-            selectinload(QuestionResponseModel.evaluations),
-        )
-        .where(QuestionResponseModel.id == response_id)
-    )
-    return result.scalar_one_or_none()
 
 
 def _validate_response_items(question: QuestionModel, items: list[ResponseItemInputSchema]) -> None:

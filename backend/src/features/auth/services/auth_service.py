@@ -13,9 +13,9 @@ from src.features.auth.utils import (
 
 
 async def authenticate_user(db: AsyncSession, email: str, password: str) -> dict[str, str]:
-    from src.features.users.services.user_service import get_user_model_by_email
+    from src.features.users.repository import get_user_by_email
 
-    user = await get_user_model_by_email(db, email.lower())
+    user = await get_user_by_email(db, email.lower())
     if not user or not verify_password(password, user.password):
         raise HTTPException(
             status_code=400,
@@ -45,9 +45,10 @@ async def logout_user(refresh_token: str) -> None:
 
 
 async def register_user(db: AsyncSession, name: str, email: str, password: str) -> None:
-    from src.features.users.services.user_service import create_user_with_hashed_password, get_user_model_by_email
+    from src.features.users.repository import get_user_by_email
+    from src.features.users.services.user_service import create_user_with_hashed_password
 
-    existing = await get_user_model_by_email(db, email.lower())
+    existing = await get_user_by_email(db, email.lower())
     if existing:
         raise HTTPException(
             status_code=409,
@@ -58,9 +59,9 @@ async def register_user(db: AsyncSession, name: str, email: str, password: str) 
 
 
 async def get_user_profile(db: AsyncSession, user_id: UUID) -> dict:
-    from src.features.users.services.user_service import get_user_model_by_id
+    from src.features.users.repository import get_user_by_id
 
-    user = await get_user_model_by_id(db, user_id)
+    user = await get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(
             status_code=404,

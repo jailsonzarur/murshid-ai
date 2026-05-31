@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.features.categories.models import CategoryModel
+from src.features.categories.repository import add_category, get_category_by_name
 
 
 async def get_or_create_category(
@@ -17,12 +17,11 @@ async def get_or_create_category(
     if normalized_name in category_cache:
         return category_cache[normalized_name]
 
-    result = await db.execute(select(CategoryModel).where(CategoryModel.name == normalized_name))
-    category = result.scalar_one_or_none()
+    category = await get_category_by_name(db, normalized_name)
 
     if category is None:
         category = CategoryModel(name=normalized_name)
-        db.add(category)
+        add_category(db, category)
         await db.flush()
 
     category_cache[normalized_name] = category

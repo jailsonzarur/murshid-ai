@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 import './App.css'
 import { ToastViewport } from './components/ui/toast'
-import { getAccessToken } from './lib/auth'
+import { clearAuthSession, getAccessToken, isTokenExpired } from './lib/auth'
 import { NAVIGATION_EVENT, navigateTo } from './lib/navigation'
 import { DashboardPage } from './pages/dashboard'
 import { ExamViewerPage } from './pages/exam-viewer'
@@ -38,7 +38,12 @@ function isProtectedPath(pathname: string) {
 
 function resolvePath(pathname: string) {
   const normalizedPathname = normalizePathname(pathname)
-  const hasSession = Boolean(getAccessToken())
+  const token = getAccessToken()
+  const hasSession = Boolean(token) && !isTokenExpired()
+
+  if (token && !hasSession) {
+    clearAuthSession()
+  }
 
   if (hasSession) {
     return isProtectedPath(normalizedPathname) ? normalizedPathname : '/dashboard'

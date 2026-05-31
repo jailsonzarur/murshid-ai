@@ -5,7 +5,7 @@ from starlette.responses import JSONResponse
 
 from src.database import AsyncSessionLocal
 from src.features.auth.utils import get_user_from_request
-from src.features.users.services.user_service import get_user_model_by_id_from_new_session
+from src.features.users.repository import get_user_by_id_from_new_session
 from src.shared.enums.enums import UserRole
 
 PUBLIC_ROUTES = {
@@ -96,7 +96,7 @@ class PermissionMiddleware(BaseHTTPMiddleware):
         if _is_guest_allowed_route(method, path):
             return await call_next(request)
 
-        db_user = await get_user_model_by_id_from_new_session(user.id, session_factory=AsyncSessionLocal)
+        db_user = await get_user_by_id_from_new_session(user.id, session_factory=AsyncSessionLocal)
 
         if not db_user or db_user.role != UserRole.ADMIN:
             return JSONResponse(

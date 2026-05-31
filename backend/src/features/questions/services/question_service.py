@@ -2,15 +2,12 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
-
 from src.database import AsyncSessionLocal
 from src.features.categories.models import CategoryModel
 from src.features.categories.services.category_service import get_or_create_category
 from src.features.exams.schemas.exam_schemas import ExamExtractionSchema
 from src.features.questions.models import OptionModel, QuestionModel, QuestionType
+from src.features.questions.repository import add_question, delete_questions_by_exam_id
 
 
 async def replace_exam_questions_from_extraction(
@@ -46,20 +43,9 @@ async def replace_exam_questions_from_extraction(
                         )
                     )
 
-                db.add(question_model)
+                add_question(db, question_model)
 
             await db.commit()
         except Exception:
             await db.rollback()
             raise
-
-
-async def delete_questions_by_exam_id(db: AsyncSession, exam_id: UUID) -> None:
-    result = await db.execute(
-        select(QuestionModel).options(selectinload(QuestionModel.options)).where(QuestionModel.exam_id == exam_id)
-    )
-
-    for question in result.scalars().all():
-        await db.delete(question)
-
-    await db.flush()
