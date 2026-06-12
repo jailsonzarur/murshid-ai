@@ -47,6 +47,7 @@ GUEST_ALLOWED_ROUTES = {
     ("GET", "/lectures"),
     ("POST", "/lectures"),
     ("GET", "/lectures/{lecture_id}"),
+    ("DELETE", "/lectures/{lecture_id}"),
     ("POST", "/lectures/{lecture_id}/pause"),
     ("POST", "/lectures/{lecture_id}/resume"),
     ("POST", "/lectures/{lecture_id}/finish"),

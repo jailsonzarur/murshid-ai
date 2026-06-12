@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
+import { NovaAulaModal } from '../components/lectures/NovaAulaModal'
 import { AppShell } from '../components/layout/app-shell'
 import { Badge } from '../components/ui/badge'
 import { EmptyState } from '../components/ui/empty-state'
@@ -41,6 +42,7 @@ export function LecturesPage() {
   const [lectures, setLectures] = useState<LectureSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
+  const [isNovaOpen, setIsNovaOpen] = useState(false)
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -84,6 +86,10 @@ export function LecturesPage() {
   function handleOpen(lecture: LectureSummary) {
     if (lecture.status === 'COMPLETED') {
       navigateTo(`/lectures/${lecture.id}`)
+      return
+    }
+    if (isInProgress(lecture.status)) {
+      navigateTo(`/lectures/${lecture.id}/record`)
     }
   }
 
@@ -91,13 +97,7 @@ export function LecturesPage() {
     <AppShell
       activeItem="lectures"
       actions={
-        <button
-          className="btn btn-primary"
-          disabled
-          style={{ opacity: 0.5, cursor: 'not-allowed' }}
-          title="Disponível em breve"
-          type="button"
-        >
+        <button className="btn btn-primary" onClick={() => setIsNovaOpen(true)} type="button">
           <Icon name="video" size={14} />
           <span>Nova aula</span>
         </button>
@@ -194,14 +194,13 @@ export function LecturesPage() {
                   </div>
                   <div className="row-actions">
                     <button
-                      aria-label={`Abrir aula ${lecture.title ?? 'sem título'}`}
+                      aria-label={live ? `Retomar aula ${lecture.title ?? 'sem título'}` : `Abrir aula ${lecture.title ?? 'sem título'}`}
                       className="icon-btn"
-                      disabled={live}
                       onClick={() => handleOpen(lecture)}
-                      title={live ? 'Disponível após finalizar' : 'Abrir aula'}
+                      title={live ? 'Retomar gravação' : 'Abrir aula'}
                       type="button"
                     >
-                      <Icon name="eye" size={15} />
+                      <Icon name={live ? 'video' : 'eye'} size={15} />
                     </button>
                   </div>
                 </div>
@@ -210,11 +209,13 @@ export function LecturesPage() {
           </div>
         ) : (
           <EmptyState
-            description="Crie sua primeira aula clicando no botão Nova aula (em breve)."
+            description="Crie sua primeira aula clicando no botão Nova aula."
             title="Nenhuma aula transcrita ainda."
           />
         )}
       </section>
+
+      {isNovaOpen ? <NovaAulaModal onClose={() => setIsNovaOpen(false)} /> : null}
     </AppShell>
   )
 }

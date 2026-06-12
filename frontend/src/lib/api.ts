@@ -642,6 +642,28 @@ export async function finishLecture(lectureId: string) {
   return parseApiResponse<LectureSummary>(response)
 }
 
+export type DeleteLectureResponseData = {
+  lecture_id: string
+  message: string
+}
+
+export async function deleteLecture(lectureId: string) {
+  const authorization = requireAuth()
+
+  const response = await fetchApi(`${API_BASE_URL}/lectures/${lectureId}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  return parseApiResponse<DeleteLectureResponseData>(response)
+}
+
+export function getApiBaseUrl() {
+  return API_BASE_URL
+}
+
 export async function processLectureSegment(
   lectureId: string,
   audio: Blob,

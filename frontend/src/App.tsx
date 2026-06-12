@@ -8,6 +8,7 @@ import { CategoriesPage } from './pages/categories'
 import { DashboardPage } from './pages/dashboard'
 import { ExamViewerPage } from './pages/exam-viewer'
 import { ExamsPage } from './pages/exams'
+import { LectureRecordPage } from './pages/lecture-record'
 import { LecturesPage } from './pages/lectures'
 import { LectureViewerPage } from './pages/lecture-viewer'
 import { LoginPage } from './pages/login'
@@ -38,7 +39,7 @@ function isProtectedPath(pathname: string) {
     protectedRoutes.has(normalizedPathname) ||
     /^\/exams\/[^/]+$/.test(normalizedPathname) ||
     /^\/resolutions\/[^/]+$/.test(normalizedPathname) ||
-    /^\/lectures\/[^/]+$/.test(normalizedPathname)
+    /^\/lectures\/[^/]+(\/record)?$/.test(normalizedPathname)
   )
 }
 
@@ -92,9 +93,11 @@ function App() {
     ? ResolutionViewerPage
     : /^\/exams\/[^/]+$/.test(normalizedPathname)
       ? ExamViewerPage
-      : /^\/lectures\/[^/]+$/.test(normalizedPathname)
-        ? LectureViewerPage
-        : routes[pathname as keyof typeof routes] ?? LoginPage
+      : /^\/lectures\/[^/]+\/record$/.test(normalizedPathname)
+        ? LectureRecordPage
+        : /^\/lectures\/[^/]+$/.test(normalizedPathname)
+          ? LectureViewerPage
+          : routes[pathname as keyof typeof routes] ?? LoginPage
 
   return (
     <>

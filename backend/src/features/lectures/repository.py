@@ -68,3 +68,7 @@ async def add_segment(db: AsyncSession, segment: LectureSegmentModel) -> None:
 async def add_event(db: AsyncSession, event: LectureEventModel) -> None:
     db.add(event)
     await db.flush()
+
+
+async def delete_lecture(db: AsyncSession, lecture: LectureModel) -> None:
+    await db.delete(lecture)

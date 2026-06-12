@@ -21,6 +21,8 @@ from src.features.lectures.repository import (
     add_event,
     add_segment,
     create_lecture,
+    delete_lecture,
+    get_lecture_by_id,
     get_lecture_with_events,
     get_lecture_with_relations,
     list_lectures_for_user_with_counts,
@@ -277,6 +279,22 @@ async def process_segment(
         new_events=[LectureEventSchema.model_validate(e) for e in new_events],
         mindmap_markdown=new_mindmap,
     )
+
+
+async def remove_lecture(
+    db: AsyncSession,
+    *,
+    lecture_id: UUID,
+    user_id: UUID,
+) -> None:
+    lecture = await get_lecture_by_id(db, lecture_id)
+    if not lecture or lecture.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"success": False, "errors": ["Aula não encontrada."], "data": None},
+        )
+    await delete_lecture(db, lecture)
+    await db.commit()
 
 
 async def generate_final_summary(db: AsyncSession, *, lecture_id: UUID) -> None:
