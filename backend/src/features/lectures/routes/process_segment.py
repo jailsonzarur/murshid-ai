@@ -24,9 +24,9 @@ async def process_segment_route(
     lecture_id: UUID,
     audio: Annotated[UploadFile, File()],
     sequence: Annotated[int, Form()],
+    duration: Annotated[float, Form()],
     current_user: Annotated[CurrentUser, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    duration: Annotated[float | None, Form()] = None,
 ):
     audio_bytes = await audio.read()
     filename = audio.filename or f"segment_{sequence}.webm"
