@@ -40,6 +40,17 @@ GUEST_ALLOWED_ROUTES = {
     ("POST", "/resolutions/{resolution_id}/pause"),
     ("POST", "/resolutions/{resolution_id}/resume"),
     ("POST", "/resolutions/{resolution_id}/submit"),
+    ("GET", "/categories"),
+    ("POST", "/categories"),
+    ("PATCH", "/categories/{category_id}"),
+    ("DELETE", "/categories/{category_id}"),
+    ("GET", "/lectures"),
+    ("POST", "/lectures"),
+    ("GET", "/lectures/{lecture_id}"),
+    ("POST", "/lectures/{lecture_id}/pause"),
+    ("POST", "/lectures/{lecture_id}/resume"),
+    ("POST", "/lectures/{lecture_id}/finish"),
+    ("POST", "/lectures/{lecture_id}/segments"),
 }
 
 

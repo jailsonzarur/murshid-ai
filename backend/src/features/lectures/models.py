@@ -95,7 +95,7 @@ class LectureModel(Base):
         DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now
     )
 
-    category: Mapped[CategoryModel | None] = relationship("CategoryModel", lazy="joined")
+    category: Mapped[CategoryModel | None] = relationship("CategoryModel", lazy="selectin")
     events: Mapped[list[LectureEventModel]] = relationship(
         back_populates="lecture",
         cascade="all, delete-orphan",

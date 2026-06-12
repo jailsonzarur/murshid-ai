@@ -4,9 +4,12 @@ import './App.css'
 import { ToastViewport } from './components/ui/toast'
 import { clearAuthSession, getAccessToken, isTokenExpired } from './lib/auth'
 import { NAVIGATION_EVENT, navigateTo } from './lib/navigation'
+import { CategoriesPage } from './pages/categories'
 import { DashboardPage } from './pages/dashboard'
 import { ExamViewerPage } from './pages/exam-viewer'
 import { ExamsPage } from './pages/exams'
+import { LecturesPage } from './pages/lectures'
+import { LectureViewerPage } from './pages/lecture-viewer'
 import { LoginPage } from './pages/login'
 import { ResolutionViewerPage } from './pages/resolution-viewer'
 
@@ -15,9 +18,11 @@ const routes = {
   '/login': LoginPage,
   '/dashboard': DashboardPage,
   '/exams': ExamsPage,
+  '/lectures': LecturesPage,
+  '/categories': CategoriesPage,
 }
 
-const protectedRoutes = new Set(['/dashboard', '/exams'])
+const protectedRoutes = new Set(['/dashboard', '/exams', '/lectures', '/categories'])
 
 function normalizePathname(pathname: string) {
   if (pathname.length > 1 && pathname.endsWith('/')) {
@@ -32,7 +37,8 @@ function isProtectedPath(pathname: string) {
   return (
     protectedRoutes.has(normalizedPathname) ||
     /^\/exams\/[^/]+$/.test(normalizedPathname) ||
-    /^\/resolutions\/[^/]+$/.test(normalizedPathname)
+    /^\/resolutions\/[^/]+$/.test(normalizedPathname) ||
+    /^\/lectures\/[^/]+$/.test(normalizedPathname)
   )
 }
 
@@ -86,7 +92,9 @@ function App() {
     ? ResolutionViewerPage
     : /^\/exams\/[^/]+$/.test(normalizedPathname)
       ? ExamViewerPage
-      : routes[pathname as keyof typeof routes] ?? LoginPage
+      : /^\/lectures\/[^/]+$/.test(normalizedPathname)
+        ? LectureViewerPage
+        : routes[pathname as keyof typeof routes] ?? LoginPage
 
   return (
     <>

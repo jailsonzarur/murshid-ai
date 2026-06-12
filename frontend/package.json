@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "lucide-react": "^0.454.0",
+    "markmap-lib": "^0.18.12",
+    "markmap-view": "^0.18.12",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-markdown": "^10.1.0"

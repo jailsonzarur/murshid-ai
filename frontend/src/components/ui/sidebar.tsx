@@ -5,8 +5,10 @@ import { Icon, type IconName } from './icon'
 
 export type AppSidebarActiveItem =
   | 'analytics'
+  | 'categories'
   | 'dashboard'
   | 'exams'
+  | 'lectures'
   | 'security'
   | 'settings'
   | 'users'
@@ -61,7 +63,8 @@ const menuItems: NavItemDef[] = [
   { id: 'dashboard', label: 'Painel', icon: 'home', path: '/dashboard' },
   { id: 'exams', label: 'Provas', icon: 'layers', count: '124', path: '/exams' },
   { id: 'flashcards', label: 'Flashcards', icon: 'bookOpen', count: '2.1k', disabled: true },
-  { id: 'transcricoes', label: 'Transcrições', icon: 'clipboard', disabled: true },
+  { id: 'lectures', label: 'Transcrições', icon: 'clipboard', path: '/lectures' },
+  { id: 'categories', label: 'Matérias', icon: 'tag', path: '/categories' },
   { id: 'calendario', label: 'Calendário', icon: 'calendar', disabled: true },
   { id: 'analytics', label: 'Análises', icon: 'chart', chev: true, disabled: true },
 ]

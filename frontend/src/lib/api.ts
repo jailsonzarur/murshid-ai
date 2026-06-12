@@ -10,6 +10,13 @@ import type {
   ResolutionSummary,
 } from '../types/exam'
 import type { OrderedExamUploadFile } from '../types/exam-upload'
+import type {
+  Category,
+  LectureDetail,
+  LectureSummary,
+  ProcessSegmentResponse,
+  StartLecturePayload,
+} from '../types/lecture'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8002'
 
@@ -484,4 +491,178 @@ export async function submitResolution(resolutionId: string) {
   })
 
   return parseApiResponse<{ resolution: ResolutionSummary }>(response)
+}
+
+function requireAuth() {
+  const authorization = getAuthorizationHeader()
+
+  if (!authorization) {
+    handleUnauthorizedSession()
+    throw new ApiError('Sessão não encontrada.', 401, 'global')
+  }
+
+  return authorization
+}
+
+export async function listCategories() {
+  const authorization = requireAuth()
+
+  const response = await fetchApi(`${API_BASE_URL}/categories`, {
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  return parseApiResponse<Category[]>(response)
+}
+
+export async function createCategory(name: string) {
+  const authorization = requireAuth()
+
+  const response = await fetchApi(`${API_BASE_URL}/categories`, {
+    method: 'POST',
+    headers: {
+      Authorization: authorization,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ name }),
+  })
+
+  return parseApiResponse<Category>(response)
+}
+
+export async function updateCategory(categoryId: string, name: string) {
+  const authorization = requireAuth()
+
+  const response = await fetchApi(`${API_BASE_URL}/categories/${categoryId}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: authorization,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ name }),
+  })
+
+  return parseApiResponse<Category>(response)
+}
+
+export type DeleteCategoryResponseData = {
+  category_id: string
+  message: string
+}
+
+export async function deleteCategory(categoryId: string) {
+  const authorization = requireAuth()
+
+  const response = await fetchApi(`${API_BASE_URL}/categories/${categoryId}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  return parseApiResponse<DeleteCategoryResponseData>(response)
+}
+
+export async function listLectures() {
+  const authorization = requireAuth()
+
+  const response = await fetchApi(`${API_BASE_URL}/lectures`, {
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  return parseApiResponse<LectureSummary[]>(response)
+}
+
+export async function getLecture(lectureId: string) {
+  const authorization = requireAuth()
+
+  const response = await fetchApi(`${API_BASE_URL}/lectures/${lectureId}`, {
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  return parseApiResponse<LectureDetail>(response)
+}
+
+export async function startLecture(payload: StartLecturePayload) {
+  const authorization = requireAuth()
+
+  const response = await fetchApi(`${API_BASE_URL}/lectures`, {
+    method: 'POST',
+    headers: {
+      Authorization: authorization,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  return parseApiResponse<LectureSummary>(response)
+}
+
+export async function pauseLecture(lectureId: string) {
+  const authorization = requireAuth()
+
+  const response = await fetchApi(`${API_BASE_URL}/lectures/${lectureId}/pause`, {
+    method: 'POST',
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  return parseApiResponse<LectureSummary>(response)
+}
+
+export async function resumeLecture(lectureId: string) {
+  const authorization = requireAuth()
+
+  const response = await fetchApi(`${API_BASE_URL}/lectures/${lectureId}/resume`, {
+    method: 'POST',
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  return parseApiResponse<LectureSummary>(response)
+}
+
+export async function finishLecture(lectureId: string) {
+  const authorization = requireAuth()
+
+  const response = await fetchApi(`${API_BASE_URL}/lectures/${lectureId}/finish`, {
+    method: 'POST',
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  return parseApiResponse<LectureSummary>(response)
+}
+
+export async function processLectureSegment(
+  lectureId: string,
+  audio: Blob,
+  sequence: number,
+  duration: number,
+  filename = `segment_${sequence}.webm`,
+) {
+  const authorization = requireAuth()
+
+  const formData = new FormData()
+  formData.append('audio', audio, filename)
+  formData.append('sequence', String(sequence))
+  formData.append('duration', String(duration))
+
+  const response = await fetchApi(`${API_BASE_URL}/lectures/${lectureId}/segments`, {
+    method: 'POST',
+    headers: {
+      Authorization: authorization,
+    },
+    body: formData,
+  })
+
+  return parseApiResponse<ProcessSegmentResponse>(response)
 }
