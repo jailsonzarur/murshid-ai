@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TypedDict
+from typing import Any, TypedDict, cast
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -176,7 +176,7 @@ async def finish_lecture(
     await db.commit()
 
     from src.features.lectures.tasks import generate_lecture_summary_task
-    generate_lecture_summary_task.delay(str(lecture_id))
+    cast(Any, generate_lecture_summary_task).delay(str(lecture_id))
 
     return _build_summary(lecture)
 
@@ -344,7 +344,7 @@ async def start_import_lecture(
         )
 
     from src.features.lectures.tasks import process_imported_lecture_task
-    process_imported_lecture_task.delay(str(lecture.id), task_items)
+    cast(Any, process_imported_lecture_task).delay(str(lecture.id), task_items)
 
     return _build_summary(lecture)
 
