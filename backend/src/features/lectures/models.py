@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, Uuid
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -59,7 +59,9 @@ class LectureModel(Base):
     )
     duration_seconds: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
-    mindmap_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    mindmap_data: Mapped[dict | None] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now
