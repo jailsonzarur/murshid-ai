@@ -27,6 +27,7 @@ AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_co
 def import_models() -> None:
     from src.features.categories.models import CategoryModel  # noqa: F401
     from src.features.exams.models import ExamDocumentModel, ExamModel  # noqa: F401
+    from src.features.lectures.models import LectureModel, LectureSegmentModel  # noqa: F401
     from src.features.questions.models import OptionModel, QuestionModel  # noqa: F401
     from src.features.resolutions.models import (  # noqa: F401
         ExamResolutionModel,
@@ -34,7 +35,6 @@ def import_models() -> None:
         QuestionResponseItemModel,
         QuestionResponseModel,
     )
-    from src.features.lectures.models import LectureModel, LectureSegmentModel  # noqa: F401
     from src.features.users.models import UserModel  # noqa: F401
 
 

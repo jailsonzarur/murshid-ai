@@ -23,7 +23,6 @@ from src.features.resolutions.repository import (
     add_response,
     add_response_item,
     clear_response_history,
-    get_active_resolution as get_active_resolution_model,
     get_exam_for_resolution,
     get_question_response_by_id,
     get_resolution_by_id,
@@ -31,6 +30,9 @@ from src.features.resolutions.repository import (
     get_resolution_for_detail,
     get_resolution_for_submit,
     list_resolutions_for_exam,
+)
+from src.features.resolutions.repository import (
+    get_active_resolution as get_active_resolution_model,
 )
 from src.features.resolutions.schemas.resolution_schemas import (
     CreateResolutionSchema,
