@@ -6,7 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 from src.features.categories.schemas.category_schemas import CategorySchema
-from src.features.lectures.models import LectureEventSeverity, LectureEventType, LectureStatus
+from src.features.lectures.models import LectureStatus
 
 
 class StartLectureSchema(BaseModel):
@@ -14,16 +14,11 @@ class StartLectureSchema(BaseModel):
     category_id: UUID | None = None
 
 
-class LectureEventSchema(BaseModel):
-    id: UUID
-    type: LectureEventType
-    content: str
-    severity: LectureEventSeverity | None = None
-    sequence: int
-    offset_seconds: float
-    created_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
+class LectureNodeSchema(BaseModel):
+    id: str
+    parent_id: str | None = None
+    label: str
+    summary: str | None = None
 
 
 class LectureSegmentSchema(BaseModel):
@@ -39,8 +34,7 @@ class LectureSegmentSchema(BaseModel):
 
 class ProcessSegmentResponseSchema(BaseModel):
     segment: LectureSegmentSchema
-    new_events: list[LectureEventSchema]
-    mindmap_markdown: str | None = None
+    insight_message: str | None = None
 
 
 class LectureSummarySchema(BaseModel):
@@ -50,9 +44,7 @@ class LectureSummarySchema(BaseModel):
     title: str | None = None
     status: LectureStatus
     duration_seconds: float
-    topics_count: int
-    alerts_count: int
-    mindmap_markdown: str | None = None
+    nodes_count: int
     created_at: datetime
     updated_at: datetime
 
@@ -67,10 +59,7 @@ class LectureDetailSchema(BaseModel):
     status: LectureStatus
     duration_seconds: float
     summary: str | None = None
-    mindmap_markdown: str | None = None
-    events: list[LectureEventSchema]
+    nodes: list[LectureNodeSchema]
     segments: list[LectureSegmentSchema]
     created_at: datetime
     updated_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)

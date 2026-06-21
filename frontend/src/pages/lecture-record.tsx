@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { ExitConfirmModal } from '../components/lectures/ExitConfirmModal'
-import { LiveTopicsPanel } from '../components/lectures/LiveTopicsPanel'
+import { InsightTicker } from '../components/lectures/InsightTicker'
 import { RecordingOrb } from '../components/lectures/RecordingOrb'
 import { AppShell } from '../components/layout/app-shell'
 import { Button } from '../components/ui/button'
@@ -45,8 +45,6 @@ export function LectureRecordPage() {
 
   const recorder = useLectureRecorder({
     lectureId: lecture?.id ?? '',
-    initialEvents: lecture?.events ?? [],
-    initialMindmap: lecture?.mindmap_markdown ?? null,
   })
 
   const lectureIdRef = useRef<string>('')
@@ -253,98 +251,91 @@ export function LectureRecordPage() {
         />
       ) : !lecture ? null : (
         <>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'minmax(0, 1.05fr) minmax(0, 1fr)',
-              gap: 18,
-              alignItems: 'stretch',
-            }}
-          >
-            <Card>
-              <CardContent style={{ padding: 28 }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    marginBottom: 20,
-                  }}
-                >
-                  <div>
-                    <div className="eyebrow">
-                      <span className="eyebrow-dot" />
-                      Gravação ao vivo
-                    </div>
-                    <h2 style={{ margin: '4px 0 6px', fontSize: 20, fontWeight: 700 }}>
-                      {lecture.title ?? 'Aula sem título'}
-                    </h2>
-                    <div style={{ fontSize: 12.5, color: 'var(--ink-4)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <Icon name="tag" size={12} />
-                      {lecture.category?.name ?? 'Sem matéria'}
-                    </div>
+          <Card>
+            <CardContent style={{ padding: '36px 28px 32px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  marginBottom: 28,
+                  maxWidth: 640,
+                  margin: '0 auto 28px',
+                }}
+              >
+                <div>
+                  <div className="eyebrow">
+                    <span className="eyebrow-dot" />
+                    Gravação ao vivo
                   </div>
-                  <span
-                    className={stage === 'paused' ? 'pill pill-warn' : 'pill pill-danger'}
-                  >
-                    <span
-                      aria-hidden="true"
-                      style={{
-                        width: 7,
-                        height: 7,
-                        borderRadius: '50%',
-                        background: 'currentColor',
-                        marginRight: 6,
-                        animation: stage === 'recording' ? 'pulse 1.4s ease-in-out infinite' : 'none',
-                      }}
-                    />
-                    {stage === 'paused' ? 'Pausado' : stage === 'finishing' ? 'Finalizando' : 'Gravando'}
-                  </span>
+                  <h2 style={{ margin: '4px 0 6px', fontSize: 22, fontWeight: 700 }}>
+                    {lecture.title ?? 'Aula sem título'}
+                  </h2>
+                  <div style={{ fontSize: 12.5, color: 'var(--ink-4)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <Icon name="tag" size={12} />
+                    {lecture.category?.name ?? 'Sem matéria'}
+                  </div>
                 </div>
+                <span className={stage === 'paused' ? 'pill pill-warn' : 'pill pill-danger'}>
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: '50%',
+                      background: 'currentColor',
+                      marginRight: 6,
+                      animation: stage === 'recording' ? 'pulse 1.4s ease-in-out infinite' : 'none',
+                    }}
+                  />
+                  {stage === 'paused' ? 'Pausado' : stage === 'finishing' ? 'Finalizando' : 'Gravando'}
+                </span>
+              </div>
 
-                <RecordingOrb
-                  isPaused={stage === 'paused'}
-                  isProcessing={recorder.isProcessing}
-                  timerSeconds={timerSeconds}
-                />
+              <RecordingOrb
+                isPaused={stage === 'paused'}
+                isProcessing={recorder.isProcessing}
+                timerSeconds={timerSeconds}
+              />
 
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 28 }}>
-                  {stage === 'paused' ? (
-                    <button
-                      className="btn btn-primary"
-                      disabled={isBusy}
-                      onClick={handleResume}
-                      type="button"
-                    >
-                      <Icon name="video" size={14} />
-                      <span>Retomar</span>
-                    </button>
-                  ) : (
-                    <button
-                      className="btn btn-ghost"
-                      disabled={isBusy || stage !== 'recording'}
-                      onClick={handlePause}
-                      type="button"
-                    >
-                      <Icon name="pause" size={14} />
-                      <span>Pausar</span>
-                    </button>
-                  )}
+              <div style={{ marginTop: 32 }}>
+                <InsightTicker insight={recorder.latestInsight} />
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 28 }}>
+                {stage === 'paused' ? (
                   <button
-                    className="btn btn-danger"
-                    disabled={isBusy || stage === 'finishing'}
-                    onClick={handleFinish}
+                    className="btn btn-primary"
+                    disabled={isBusy}
+                    onClick={handleResume}
                     type="button"
                   >
-                    <Icon name="square" size={14} />
-                    <span>{stage === 'finishing' ? 'Finalizando...' : 'Finalizar'}</span>
+                    <Icon name="video" size={14} />
+                    <span>Retomar</span>
                   </button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <LiveTopicsPanel events={recorder.events} isProcessing={recorder.isProcessing} />
-          </div>
+                ) : (
+                  <button
+                    className="btn btn-ghost"
+                    disabled={isBusy || stage !== 'recording'}
+                    onClick={handlePause}
+                    type="button"
+                  >
+                    <Icon name="pause" size={14} />
+                    <span>Pausar</span>
+                  </button>
+                )}
+                <button
+                  className="btn btn-danger"
+                  disabled={isBusy || stage === 'finishing'}
+                  onClick={handleFinish}
+                  type="button"
+                >
+                  <Icon name="square" size={14} />
+                  <span>{stage === 'finishing' ? 'Finalizando...' : 'Finalizar'}</span>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
 
           {exitOpen ? (
             <ExitConfirmModal

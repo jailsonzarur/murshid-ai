@@ -1,22 +1,15 @@
-export type LectureStatus = 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'FAILED'
-
-export type LectureEventType = 'TOPIC' | 'ALERT'
-
-export type LectureEventSeverity = 'WARNING' | 'CRITICAL'
+export type LectureStatus = 'ACTIVE' | 'PAUSED' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
 
 export type Category = {
   id: string
   name: string
 }
 
-export type LectureEvent = {
+export type LectureNode = {
   id: string
-  type: LectureEventType
-  content: string
-  severity: LectureEventSeverity | null
-  sequence: number
-  offset_seconds: number
-  created_at: string
+  parent_id: string | null
+  label: string
+  summary: string | null
 }
 
 export type LectureSegment = {
@@ -35,9 +28,7 @@ export type LectureSummary = {
   title: string | null
   status: LectureStatus
   duration_seconds: number
-  topics_count: number
-  alerts_count: number
-  mindmap_markdown: string | null
+  nodes_count: number
   created_at: string
   updated_at: string
 }
@@ -50,8 +41,7 @@ export type LectureDetail = {
   status: LectureStatus
   duration_seconds: number
   summary: string | null
-  mindmap_markdown: string | null
-  events: LectureEvent[]
+  nodes: LectureNode[]
   segments: LectureSegment[]
   created_at: string
   updated_at: string
@@ -59,8 +49,7 @@ export type LectureDetail = {
 
 export type ProcessSegmentResponse = {
   segment: LectureSegment
-  new_events: LectureEvent[]
-  mindmap_markdown: string | null
+  insight_message: string | null
 }
 
 export type StartLecturePayload = {

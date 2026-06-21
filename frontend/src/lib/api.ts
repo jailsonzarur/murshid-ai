@@ -664,6 +664,37 @@ export function getApiBaseUrl() {
   return API_BASE_URL
 }
 
+export type ImportAudioItem = {
+  file: File
+  duration: number
+}
+
+export async function importLecture(
+  title: string,
+  categoryId: string | null,
+  audios: ImportAudioItem[],
+) {
+  const authorization = requireAuth()
+
+  const formData = new FormData()
+  if (title.trim()) formData.append('title', title.trim())
+  if (categoryId) formData.append('category_id', categoryId)
+  formData.append('durations', JSON.stringify(audios.map((item) => item.duration)))
+  audios.forEach((item) => {
+    formData.append('files', item.file, item.file.name)
+  })
+
+  const response = await fetchApi(`${API_BASE_URL}/lectures/import`, {
+    method: 'POST',
+    headers: {
+      Authorization: authorization,
+    },
+    body: formData,
+  })
+
+  return parseApiResponse<LectureSummary>(response)
+}
+
 export async function processLectureSegment(
   lectureId: string,
   audio: Blob,

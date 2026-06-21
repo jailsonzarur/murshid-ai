@@ -46,6 +46,7 @@ GUEST_ALLOWED_ROUTES = {
     ("DELETE", "/categories/{category_id}"),
     ("GET", "/lectures"),
     ("POST", "/lectures"),
+    ("POST", "/lectures/import"),
     ("GET", "/lectures/{lecture_id}"),
     ("DELETE", "/lectures/{lecture_id}"),
     ("POST", "/lectures/{lecture_id}/pause"),

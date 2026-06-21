@@ -1,43 +1,53 @@
 from __future__ import annotations
 
+import asyncio
+import logging
+from typing import TypedDict
 from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.features.categories.repository import get_category_by_id
-from src.features.lectures.ai.mindmap_agent import generate_final_mindmap_and_summary, update_mindmap
-from src.features.lectures.ai.topic_alert_agent import extract_topic_and_alert
+from src.features.files.services.bucket_service import get_bucket_service
+from src.features.lectures.ai.final_summary_agent import build_final_summary
+from src.features.lectures.ai.live_insight_agent import generate_live_insight
+from src.features.lectures.ai.mindmap_tree_agent import build_final_tree
 from src.features.lectures.ai.transcription import transcribe_audio_chunk
-from src.features.lectures.models import (
-    LectureEventModel,
-    LectureEventSeverity,
-    LectureEventType,
-    LectureModel,
-    LectureSegmentModel,
-    LectureStatus,
-)
+from src.features.lectures.models import LectureModel, LectureSegmentModel, LectureStatus
 from src.features.lectures.repository import (
-    add_event,
     add_segment,
     create_lecture,
     delete_lecture,
     get_lecture_by_id,
-    get_lecture_with_events,
-    get_lecture_with_relations,
-    list_lectures_for_user_with_counts,
+    get_lecture_with_segments,
+    list_lectures_for_user,
 )
 from src.features.lectures.schemas.lecture_schemas import (
     LectureDetailSchema,
-    LectureEventSchema,
+    LectureNodeSchema,
     LectureSegmentSchema,
     LectureSummarySchema,
     ProcessSegmentResponseSchema,
     StartLectureSchema,
 )
 
+logger = logging.getLogger(__name__)
 
-def _build_summary(lecture: LectureModel, *, topics_count: int, alerts_count: int) -> LectureSummarySchema:
+
+def _nodes_from_mindmap(lecture: LectureModel) -> list[dict]:
+    data = lecture.mindmap_data
+    if not data:
+        return []
+    nodes = data.get("nodes")
+    return nodes if isinstance(nodes, list) else []
+
+
+def _nodes_count(lecture: LectureModel) -> int:
+    return len(_nodes_from_mindmap(lecture))
+
+
+def _build_summary(lecture: LectureModel) -> LectureSummarySchema:
     return LectureSummarySchema.model_validate(
         {
             "id": lecture.id,
@@ -46,19 +56,34 @@ def _build_summary(lecture: LectureModel, *, topics_count: int, alerts_count: in
             "title": lecture.title,
             "status": lecture.status,
             "duration_seconds": lecture.duration_seconds,
-            "topics_count": topics_count,
-            "alerts_count": alerts_count,
-            "mindmap_markdown": lecture.mindmap_markdown,
+            "nodes_count": _nodes_count(lecture),
             "created_at": lecture.created_at,
             "updated_at": lecture.updated_at,
         }
     )
 
 
-async def _counts(lecture: LectureModel) -> tuple[int, int]:
-    topics = sum(1 for e in lecture.events if e.type == LectureEventType.TOPIC)
-    alerts = sum(1 for e in lecture.events if e.type == LectureEventType.ALERT)
-    return topics, alerts
+def _build_detail(lecture: LectureModel) -> LectureDetailSchema:
+    return LectureDetailSchema(
+        id=lecture.id,
+        user_id=lecture.user_id,
+        category=lecture.category,  # type: ignore[arg-type]
+        title=lecture.title,
+        status=lecture.status,
+        duration_seconds=lecture.duration_seconds,
+        summary=lecture.summary,
+        nodes=[LectureNodeSchema.model_validate(node) for node in _nodes_from_mindmap(lecture)],
+        segments=[LectureSegmentSchema.model_validate(segment) for segment in lecture.segments],
+        created_at=lecture.created_at,
+        updated_at=lecture.updated_at,
+    )
+
+
+class ImportAudioItem(TypedDict):
+    filename: str
+    content: bytes
+    content_type: str | None
+    duration: float
 
 
 async def start_lecture(
@@ -83,7 +108,7 @@ async def start_lecture(
     await create_lecture(db, lecture)
     await db.commit()
     await db.refresh(lecture, ["category"])
-    return _build_summary(lecture, topics_count=0, alerts_count=0)
+    return _build_summary(lecture)
 
 
 async def pause_lecture(
@@ -92,7 +117,7 @@ async def pause_lecture(
     lecture_id: UUID,
     user_id: UUID,
 ) -> LectureSummarySchema:
-    lecture = await get_lecture_with_events(db, lecture_id)
+    lecture = await get_lecture_by_id(db, lecture_id)
     if not lecture or lecture.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -105,8 +130,7 @@ async def pause_lecture(
         )
     lecture.status = LectureStatus.PAUSED
     await db.commit()
-    topics, alerts = await _counts(lecture)
-    return _build_summary(lecture, topics_count=topics, alerts_count=alerts)
+    return _build_summary(lecture)
 
 
 async def resume_lecture(
@@ -115,7 +139,7 @@ async def resume_lecture(
     lecture_id: UUID,
     user_id: UUID,
 ) -> LectureSummarySchema:
-    lecture = await get_lecture_with_events(db, lecture_id)
+    lecture = await get_lecture_by_id(db, lecture_id)
     if not lecture or lecture.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -128,8 +152,7 @@ async def resume_lecture(
         )
     lecture.status = LectureStatus.ACTIVE
     await db.commit()
-    topics, alerts = await _counts(lecture)
-    return _build_summary(lecture, topics_count=topics, alerts_count=alerts)
+    return _build_summary(lecture)
 
 
 async def finish_lecture(
@@ -138,7 +161,7 @@ async def finish_lecture(
     lecture_id: UUID,
     user_id: UUID,
 ) -> LectureSummarySchema:
-    lecture = await get_lecture_with_events(db, lecture_id)
+    lecture = await get_lecture_by_id(db, lecture_id)
     if not lecture or lecture.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -155,8 +178,7 @@ async def finish_lecture(
     from src.features.lectures.tasks import generate_lecture_summary_task
     generate_lecture_summary_task.delay(str(lecture_id))
 
-    topics, alerts = await _counts(lecture)
-    return _build_summary(lecture, topics_count=topics, alerts_count=alerts)
+    return _build_summary(lecture)
 
 
 async def get_lecture_detail(
@@ -165,13 +187,13 @@ async def get_lecture_detail(
     lecture_id: UUID,
     user_id: UUID,
 ) -> LectureDetailSchema:
-    lecture = await get_lecture_with_relations(db, lecture_id)
+    lecture = await get_lecture_with_segments(db, lecture_id)
     if not lecture or lecture.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"success": False, "errors": ["Aula não encontrada."], "data": None},
         )
-    return LectureDetailSchema.model_validate(lecture)
+    return _build_detail(lecture)
 
 
 async def list_user_lectures(
@@ -179,11 +201,36 @@ async def list_user_lectures(
     *,
     user_id: UUID,
 ) -> list[LectureSummarySchema]:
-    rows = await list_lectures_for_user_with_counts(db, user_id)
-    return [
-        _build_summary(lecture, topics_count=topics, alerts_count=alerts)
-        for lecture, topics, alerts in rows
-    ]
+    lectures = await list_lectures_for_user(db, user_id)
+    return [_build_summary(lecture) for lecture in lectures]
+
+
+async def _transcribe_and_persist_segment(
+    db: AsyncSession,
+    lecture: LectureModel,
+    *,
+    audio_bytes: bytes,
+    filename: str,
+    sequence: int,
+    duration: float,
+) -> LectureSegmentModel:
+    """Transcreve o áudio, cria o segment e atualiza a duração da lecture.
+
+    Não valida ownership/status — o caller faz.
+    Não dá commit — o caller agrupa transações.
+    """
+    transcript = await transcribe_audio_chunk(audio_bytes, filename)
+    new_offset = lecture.duration_seconds + duration
+    segment = LectureSegmentModel(
+        lecture_id=lecture.id,
+        sequence=sequence,
+        transcript=transcript,
+        duration_seconds=duration,
+        offset_seconds=new_offset,
+    )
+    await add_segment(db, segment)
+    lecture.duration_seconds = new_offset
+    return segment
 
 
 async def process_segment(
@@ -196,9 +243,7 @@ async def process_segment(
     sequence: int,
     duration: float,
 ) -> ProcessSegmentResponseSchema:
-    transcript = await transcribe_audio_chunk(audio_bytes, filename)
-
-    lecture = await get_lecture_with_events(db, lecture_id)
+    lecture = await get_lecture_with_segments(db, lecture_id)
     if not lecture or lecture.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -210,75 +255,98 @@ async def process_segment(
             detail={"success": False, "errors": ["Segmentos só podem ser enviados em aulas ativas."], "data": None},
         )
 
-    existing_topics = [e.content for e in lecture.events if e.type == LectureEventType.TOPIC]
-    existing_alerts = [e.content for e in lecture.events if e.type == LectureEventType.ALERT]
-    extraction = await extract_topic_and_alert(transcript, existing_topics, existing_alerts)
-
-    new_offset = lecture.duration_seconds + duration
-
-    segment = LectureSegmentModel(
-        lecture_id=lecture_id,
+    segment = await _transcribe_and_persist_segment(
+        db,
+        lecture,
+        audio_bytes=audio_bytes,
+        filename=filename,
         sequence=sequence,
-        transcript=transcript,
-        duration_seconds=duration,
-        offset_seconds=new_offset,
+        duration=duration,
     )
-    await add_segment(db, segment)
 
-    lecture.duration_seconds = new_offset
+    # últimos 3 transcripts (anteriores ordenados por sequence) + o novo
+    prior = sorted(
+        (s for s in lecture.segments if s.id != segment.id),
+        key=lambda s: s.sequence,
+    )[-2:]
+    recent_transcripts = [s.transcript for s in prior] + [segment.transcript]
 
-    new_events: list[LectureEventModel] = []
-    next_event_sequence = len(lecture.events) + 1
-
-    updated_topics = list(existing_topics)
-    topic_data = extraction.get("topic")
-    if topic_data and topic_data.get("is_new"):
-        new_topic = LectureEventModel(
-            lecture_id=lecture_id,
-            type=LectureEventType.TOPIC,
-            content=topic_data["name"],
-            sequence=next_event_sequence,
-            offset_seconds=new_offset,
-        )
-        await add_event(db, new_topic)
-        new_events.append(new_topic)
-        updated_topics.append(topic_data["name"])
-        next_event_sequence += 1
-
-    updated_alerts: list[dict] = [
-        {"message": e.content, "severity": e.severity}
-        for e in lecture.events
-        if e.type == LectureEventType.ALERT
-    ]
-    alert_data = extraction.get("alert")
-    if alert_data:
-        new_alert = LectureEventModel(
-            lecture_id=lecture_id,
-            type=LectureEventType.ALERT,
-            content=alert_data["message"],
-            severity=LectureEventSeverity(alert_data.get("severity", LectureEventSeverity.WARNING)),
-            sequence=next_event_sequence,
-            offset_seconds=new_offset,
-        )
-        await add_event(db, new_alert)
-        new_events.append(new_alert)
-        updated_alerts.append({"message": alert_data["message"], "severity": alert_data.get("severity", "WARNING")})
-
-    new_mindmap = await update_mindmap(
-        transcript=transcript,
-        topics=updated_topics,
-        alerts=updated_alerts,
-        current_mindmap=lecture.mindmap_markdown,
-        lecture_title=lecture.title,
-    )
-    lecture.mindmap_markdown = new_mindmap
+    insight = await generate_live_insight(recent_transcripts)
 
     await db.commit()
+
     return ProcessSegmentResponseSchema(
         segment=LectureSegmentSchema.model_validate(segment),
-        new_events=[LectureEventSchema.model_validate(e) for e in new_events],
-        mindmap_markdown=new_mindmap,
+        insight_message=insight,
     )
+
+
+async def start_import_lecture(
+    db: AsyncSession,
+    *,
+    user_id: UUID,
+    title: str | None,
+    category_id: UUID | None,
+    audio_items: list[ImportAudioItem],
+) -> LectureSummarySchema:
+    """Cria uma lecture em PROCESSING, sobe os áudios pro MinIO e dispara a Celery task."""
+    if not audio_items:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"success": False, "errors": ["Envie pelo menos um arquivo de áudio."], "data": None},
+        )
+
+    if category_id is not None:
+        category = await get_category_by_id(db, category_id)
+        if category is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"success": False, "errors": ["Matéria não encontrada."], "data": None},
+            )
+
+    lecture = LectureModel(
+        user_id=user_id,
+        title=title,
+        category_id=category_id,
+        status=LectureStatus.PROCESSING,
+    )
+    await create_lecture(db, lecture)
+    await db.commit()
+    await db.refresh(lecture, ["category"])
+
+    bucket = get_bucket_service()
+    task_items: list[dict] = []
+    uploaded_keys: list[str] = []
+    try:
+        for index, item in enumerate(audio_items, start=1):
+            folder = f"lectures/{lecture.id}/imports"
+            safe_name = f"{index:02d}_{item['filename']}"
+            upload = bucket.upload_bytes(
+                item["content"],
+                safe_name,
+                folder=folder,
+                content_type=item["content_type"],
+            )
+            uploaded_keys.append(upload.key)
+            task_items.append({"object_key": upload.key, "duration": item["duration"]})
+    except Exception:
+        logger.exception("start_import_lecture: upload failure for lecture %s", lecture.id)
+        for key in uploaded_keys:
+            try:
+                bucket.delete(key)
+            except Exception:
+                logger.exception("start_import_lecture: cleanup failed for %s", key)
+        lecture.status = LectureStatus.FAILED
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"success": False, "errors": ["Falha ao subir os áudios. Tente novamente."], "data": None},
+        )
+
+    from src.features.lectures.tasks import process_imported_lecture_task
+    process_imported_lecture_task.delay(str(lecture.id), task_items)
+
+    return _build_summary(lecture)
 
 
 async def remove_lecture(
@@ -298,30 +366,41 @@ async def remove_lecture(
 
 
 async def generate_final_summary(db: AsyncSession, *, lecture_id: UUID) -> None:
-    lecture = await get_lecture_with_relations(db, lecture_id)
+    lecture = await get_lecture_with_segments(db, lecture_id)
     if not lecture:
+        logger.warning("generate_final_summary: lecture %s not found", lecture_id)
         return
 
     segments_sorted = sorted(lecture.segments, key=lambda s: s.sequence)
-    full_transcript = "\n\n".join(
-        f"[Segmento {s.sequence}]\n{s.transcript}" for s in segments_sorted
-    )
-    topics = [e.content for e in lecture.events if e.type == LectureEventType.TOPIC]
-    alerts = [
-        {"message": e.content, "severity": e.severity}
-        for e in lecture.events
-        if e.type == LectureEventType.ALERT
-    ]
+    if not segments_sorted:
+        logger.info("generate_final_summary: lecture %s has no segments, skipping", lecture_id)
+        return
 
-    result = await generate_final_mindmap_and_summary(
+    full_transcript = "\n\n".join(s.transcript for s in segments_sorted)
+    subject_name = lecture.category.name if lecture.category else None
+
+    summary_task = build_final_summary(
         full_transcript=full_transcript,
-        topics=topics,
-        alerts=alerts,
         lecture_title=lecture.title,
+        subject_name=subject_name,
+    )
+    tree_task = build_final_tree(
+        full_transcript=full_transcript,
+        lecture_title=lecture.title,
+        subject_name=subject_name,
     )
 
-    lecture.summary = result["summary"]
-    if result["mindmap_markdown"]:
-        lecture.mindmap_markdown = result["mindmap_markdown"]
+    summary_result, tree_result = await asyncio.gather(summary_task, tree_task)
+
+    if summary_result:
+        lecture.summary = summary_result
+    if tree_result:
+        lecture.mindmap_data = {"nodes": tree_result}
 
     await db.commit()
+    logger.info(
+        "generate_final_summary done for %s: summary_len=%d, nodes=%d",
+        lecture_id,
+        len(summary_result or ""),
+        len(tree_result or []),
+    )

@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 
-import { Mindmap } from '../components/lectures/Mindmap'
+import { SummaryModal } from '../components/lectures/SummaryModal'
 import { TranscriptModal } from '../components/lectures/TranscriptModal'
+import { TreeViewer } from '../components/lectures/TreeViewer'
 import { AppShell } from '../components/layout/app-shell'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
@@ -62,6 +63,7 @@ export function LectureViewerPage() {
   const [lecture, setLecture] = useState<LectureDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [transcriptOpen, setTranscriptOpen] = useState(false)
+  const [summaryOpen, setSummaryOpen] = useState(false)
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -73,27 +75,43 @@ export function LectureViewerPage() {
       navigateTo('/lectures', { replace: true })
       return
     }
-    async function loadLecture() {
-      setIsLoading(true)
+
+    let cancelled = false
+    let intervalId: number | undefined
+
+    async function loadLecture(isFirst: boolean) {
+      if (isFirst) setIsLoading(true)
       try {
         const data = await getLecture(lectureId)
+        if (cancelled) return
         setLecture(data)
+        // se a aula está completed mas summary ainda não foi gerada → continua polling
+        const stillProcessing =
+          data.status === 'PROCESSING' ||
+          (data.status === 'COMPLETED' && data.summary === null && (data.nodes?.length ?? 0) === 0)
+        if (!stillProcessing && intervalId !== undefined) {
+          window.clearInterval(intervalId)
+          intervalId = undefined
+        }
+        if (stillProcessing && intervalId === undefined) {
+          intervalId = window.setInterval(() => {
+            void loadLecture(false)
+          }, 3000)
+        }
       } catch {
-        setLecture(null)
+        if (!cancelled) setLecture(null)
       } finally {
-        setIsLoading(false)
+        if (isFirst && !cancelled) setIsLoading(false)
       }
     }
-    void loadLecture()
-  }, [])
 
-  const counts = useMemo(() => {
-    if (!lecture) return { topics: 0, alerts: 0 }
-    return {
-      topics: lecture.events.filter((e) => e.type === 'TOPIC').length,
-      alerts: lecture.events.filter((e) => e.type === 'ALERT').length,
+    void loadLecture(true)
+
+    return () => {
+      cancelled = true
+      if (intervalId !== undefined) window.clearInterval(intervalId)
     }
-  }, [lecture])
+  }, [])
 
   return (
     <AppShell
@@ -113,6 +131,11 @@ export function LectureViewerPage() {
           title="Aula não encontrada."
         />
       ) : (
+        (() => {
+          const isProcessing =
+            lecture.status === 'PROCESSING' ||
+            (lecture.status === 'COMPLETED' && lecture.summary === null && lecture.nodes.length === 0)
+          return (
         <>
           {/* Hero compact */}
           <div className="hero compact" style={{ marginBottom: 20 }}>
@@ -135,13 +158,7 @@ export function LectureViewerPage() {
                   <span className="pill pill-accent">
                     <Icon name="listChecks" size={12} />
                     <span>
-                      <strong style={{ marginRight: 4 }}>{counts.topics}</strong>tópicos
-                    </span>
-                  </span>
-                  <span className="pill pill-warn">
-                    <Icon name="alertTriangle" size={12} />
-                    <span>
-                      <strong style={{ marginRight: 4 }}>{counts.alerts}</strong>alertas
+                      <strong style={{ marginRight: 4 }}>{lecture.nodes.length}</strong>tópicos
                     </span>
                   </span>
                 </div>
@@ -149,7 +166,7 @@ export function LectureViewerPage() {
             </div>
           </div>
 
-          {/* Summary + Mindmap grid */}
+          {/* Summary + Tree grid */}
           <div
             style={{
               display: 'grid',
@@ -158,7 +175,7 @@ export function LectureViewerPage() {
               marginBottom: 18,
             }}
           >
-            <Card>
+            <Card style={{ height: 520, display: 'flex', flexDirection: 'column' }}>
               <CardHeader>
                 <div>
                   <CardTitle>Resumo da aula</CardTitle>
@@ -168,29 +185,93 @@ export function LectureViewerPage() {
                   <Icon name="sparkles" size={11} /> IA
                 </span>
               </CardHeader>
-              <CardContent>
+              <CardContent
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  padding: 0,
+                  minHeight: 0,
+                }}
+              >
                 {lecture.summary ? (
-                  <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--ink-2)' }}>
-                    <ReactMarkdown>{lecture.summary}</ReactMarkdown>
-                  </div>
+                  <>
+                    <div
+                      style={{
+                        flex: 1,
+                        position: 'relative',
+                        overflow: 'hidden',
+                        padding: '6px 22px 0',
+                        minHeight: 0,
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: '100%',
+                          overflow: 'hidden',
+                          fontSize: 14,
+                          lineHeight: 1.6,
+                          color: 'var(--ink-2)',
+                        }}
+                      >
+                        <ReactMarkdown>{lecture.summary}</ReactMarkdown>
+                      </div>
+                      <div
+                        aria-hidden="true"
+                        style={{
+                          position: 'absolute',
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          height: 80,
+                          background:
+                            'linear-gradient(to bottom, transparent, var(--card-bg, #fff) 75%)',
+                          pointerEvents: 'none',
+                        }}
+                      />
+                    </div>
+                    <div
+                      style={{
+                        padding: '12px 22px 18px',
+                        borderTop: '1px solid var(--line)',
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                      }}
+                    >
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => setSummaryOpen(true)}
+                        type="button"
+                      >
+                        <Icon name="fileText" size={12} />
+                        <span>Ver resumo completo</span>
+                      </button>
+                    </div>
+                  </>
+                ) : isProcessing ? (
+                  <ProcessingState label="Gerando resumo da aula..." />
                 ) : (
-                  <p style={{ fontSize: 13.5, color: 'var(--ink-4)' }}>
-                    O resumo ainda está sendo gerado em segundo plano.
-                  </p>
+                  <div style={{ padding: 22 }}>
+                    <p style={{ fontSize: 13.5, color: 'var(--ink-4)' }}>
+                      O resumo ainda está sendo gerado.
+                    </p>
+                  </div>
                 )}
               </CardContent>
             </Card>
 
-            <Card>
+            <Card style={{ height: 520, display: 'flex', flexDirection: 'column' }}>
               <CardHeader>
                 <div>
                   <CardTitle>Mapa de tópicos</CardTitle>
                   <div className="card-sub">Estrutura hierárquica da aula</div>
                 </div>
               </CardHeader>
-              <CardContent style={{ padding: 0 }}>
-                {lecture.mindmap_markdown ? (
-                  <Mindmap markdown={lecture.mindmap_markdown} />
+              <CardContent style={{ padding: 0, flex: 1, minHeight: 0 }}>
+                {lecture.nodes.length > 0 ? (
+                  <TreeViewer lectureNodes={lecture.nodes} />
+                ) : isProcessing ? (
+                  <ProcessingState label="Construindo mapa mental..." />
                 ) : (
                   <div style={{ padding: 22 }}>
                     <p style={{ fontSize: 13.5, color: 'var(--ink-4)' }}>
@@ -216,15 +297,65 @@ export function LectureViewerPage() {
 
           {transcriptOpen ? (
             <TranscriptModal
-              events={lecture.events}
               lectureTitle={lecture.title}
               onClose={() => setTranscriptOpen(false)}
               segments={lecture.segments}
               subjectName={lecture.category?.name ?? null}
             />
           ) : null}
+
+          {summaryOpen && lecture.summary ? (
+            <SummaryModal
+              lectureTitle={lecture.title}
+              onClose={() => setSummaryOpen(false)}
+              subjectName={lecture.category?.name ?? null}
+              summary={lecture.summary}
+            />
+          ) : null}
         </>
+          )
+        })()
       )}
     </AppShell>
+  )
+}
+
+function ProcessingState({ label }: { label: string }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        padding: '32px 20px',
+        color: 'var(--ink-4)',
+        textAlign: 'center',
+        height: '100%',
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: '50%',
+          border: '2.5px solid currentColor',
+          borderTopColor: 'transparent',
+          animation: 'lv-spin 0.9s linear infinite',
+          display: 'inline-block',
+        }}
+      />
+      <p style={{ margin: 0, fontSize: 13, fontWeight: 500 }}>{label}</p>
+      <p style={{ margin: 0, fontSize: 12, opacity: 0.7 }}>
+        Isso leva ~30 segundos. A página atualiza automaticamente.
+      </p>
+      <style>{`
+        @keyframes lv-spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+    </div>
   )
 }

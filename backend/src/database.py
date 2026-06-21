@@ -34,7 +34,7 @@ def import_models() -> None:
         QuestionResponseItemModel,
         QuestionResponseModel,
     )
-    from src.features.lectures.models import LectureEventModel, LectureModel, LectureSegmentModel  # noqa: F401
+    from src.features.lectures.models import LectureModel, LectureSegmentModel  # noqa: F401
     from src.features.users.models import UserModel  # noqa: F401
 
 

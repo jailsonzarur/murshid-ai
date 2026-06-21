@@ -1,24 +1,20 @@
 import { useCallback, useRef, useState } from 'react'
 
 import { processLectureSegment } from '../lib/api'
-import type { LectureEvent } from '../types/lecture'
 import { useMediaRecorder } from './useMediaRecorder'
 
-const CHUNK_DURATION_MS = 15_000
+const CHUNK_DURATION_MS = 20_000
 
 type Options = {
   lectureId: string
-  initialEvents: LectureEvent[]
-  initialMindmap: string | null
   onError?: (error: unknown) => void
 }
 
 type RecorderState = 'idle' | 'recording' | 'paused' | 'stopping'
 
-export function useLectureRecorder({ lectureId, initialEvents, initialMindmap, onError }: Options) {
+export function useLectureRecorder({ lectureId, onError }: Options) {
   const [state, setState] = useState<RecorderState>('idle')
-  const [events, setEvents] = useState<LectureEvent[]>(initialEvents)
-  const [mindmap, setMindmap] = useState<string | null>(initialMindmap)
+  const [latestInsight, setLatestInsight] = useState<string | null>(null)
   const [pendingChunks, setPendingChunks] = useState(0)
 
   const sequenceRef = useRef(0)
@@ -31,11 +27,8 @@ export function useLectureRecorder({ lectureId, initialEvents, initialMindmap, o
       queueRef.current = queueRef.current.then(async () => {
         try {
           const result = await processLectureSegment(lectureId, blob, sequence, durationSeconds)
-          if (result.new_events.length > 0) {
-            setEvents((prev) => [...prev, ...result.new_events])
-          }
-          if (result.mindmap_markdown) {
-            setMindmap(result.mindmap_markdown)
+          if (result.insight_message) {
+            setLatestInsight(result.insight_message)
           }
         } catch (error) {
           onError?.(error)
@@ -77,8 +70,7 @@ export function useLectureRecorder({ lectureId, initialEvents, initialMindmap, o
 
   return {
     state,
-    events,
-    mindmap,
+    latestInsight,
     pendingChunks,
     isProcessing: pendingChunks > 0,
     start,

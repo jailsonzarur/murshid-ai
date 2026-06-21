@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
+import { ImportAudioModal } from '../components/lectures/ImportAudioModal'
 import { NovaAulaModal } from '../components/lectures/NovaAulaModal'
 import { AppShell } from '../components/layout/app-shell'
 import { Badge } from '../components/ui/badge'
@@ -16,6 +17,7 @@ const statusFilters: Array<{ label: string; value: StatusFilter }> = [
   { label: 'Todas', value: 'ALL' },
   { label: 'Em andamento', value: 'ACTIVE' },
   { label: 'Pausadas', value: 'PAUSED' },
+  { label: 'Processando', value: 'PROCESSING' },
   { label: 'Concluídas', value: 'COMPLETED' },
 ]
 
@@ -43,6 +45,7 @@ export function LecturesPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
   const [isNovaOpen, setIsNovaOpen] = useState(false)
+  const [isImportOpen, setIsImportOpen] = useState(false)
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -68,6 +71,7 @@ export function LecturesPage() {
       ALL: lectures.length,
       ACTIVE: 0,
       PAUSED: 0,
+      PROCESSING: 0,
       COMPLETED: 0,
       FAILED: 0,
     }
@@ -84,7 +88,7 @@ export function LecturesPage() {
   }, [lectures, statusFilter])
 
   function handleOpen(lecture: LectureSummary) {
-    if (lecture.status === 'COMPLETED') {
+    if (lecture.status === 'COMPLETED' || lecture.status === 'PROCESSING') {
       navigateTo(`/lectures/${lecture.id}`)
       return
     }
@@ -97,10 +101,16 @@ export function LecturesPage() {
     <AppShell
       activeItem="lectures"
       actions={
-        <button className="btn btn-primary" onClick={() => setIsNovaOpen(true)} type="button">
-          <Icon name="video" size={14} />
-          <span>Nova aula</span>
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-ghost" onClick={() => setIsImportOpen(true)} type="button">
+            <Icon name="upload" size={14} />
+            <span>Importar áudio</span>
+          </button>
+          <button className="btn btn-primary" onClick={() => setIsNovaOpen(true)} type="button">
+            <Icon name="video" size={14} />
+            <span>Nova aula</span>
+          </button>
+        </div>
       }
       description="Grave suas aulas ao vivo e deixe o Murshid transcrever, detectar tópicos e marcar o que cai na prova — em tempo real."
       title="Aulas transcritas"
@@ -130,7 +140,11 @@ export function LecturesPage() {
             {filteredLectures.map((lecture) => {
               const live = isInProgress(lecture.status)
               return (
-                <div className="prova-row" key={lecture.id}>
+                <div
+                  className="prova-row"
+                  key={lecture.id}
+                  style={{ gridTemplateColumns: '44px minmax(0, 1fr) 120px 130px auto' }}
+                >
                   <div
                     aria-hidden="true"
                     className={`avatar ${live ? 'avatar-orange' : 'avatar-blue'}`}
@@ -174,11 +188,7 @@ export function LecturesPage() {
                   </div>
                   <div>
                     <div className="cell-label">Tópicos</div>
-                    <div className="cell-value mono">{lecture.topics_count}</div>
-                  </div>
-                  <div>
-                    <div className="cell-label">Alertas</div>
-                    <div className="cell-value mono">{lecture.alerts_count}</div>
+                    <div className="cell-value mono">{lecture.nodes_count}</div>
                   </div>
                   <div>
                     <div className="cell-label">Status</div>
@@ -186,6 +196,8 @@ export function LecturesPage() {
                       <Badge tone="destructive">
                         {lecture.status === 'PAUSED' ? 'Pausada' : 'Em andamento'}
                       </Badge>
+                    ) : lecture.status === 'PROCESSING' ? (
+                      <Badge tone="orange">Processando</Badge>
                     ) : lecture.status === 'COMPLETED' ? (
                       <Badge tone="green">Concluída</Badge>
                     ) : (
@@ -216,6 +228,7 @@ export function LecturesPage() {
       </section>
 
       {isNovaOpen ? <NovaAulaModal onClose={() => setIsNovaOpen(false)} /> : null}
+      {isImportOpen ? <ImportAudioModal onClose={() => setIsImportOpen(false)} /> : null}
     </AppShell>
   )
 }
