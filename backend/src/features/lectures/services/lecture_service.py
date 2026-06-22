@@ -8,6 +8,7 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.database import AsyncSessionLocal
 from src.features.categories.repository import get_category_by_id
 from src.features.files.services.bucket_service import get_bucket_service
 from src.features.lectures.ai.final_summary_agent import build_final_summary
@@ -222,7 +223,7 @@ async def _transcribe_and_persist_segment(
     transcript = await transcribe_audio_chunk(audio_bytes, filename)
     new_offset = lecture.duration_seconds + duration
     segment = LectureSegmentModel(
-        lecture_id=lecture.id,
+        lecture=lecture,
         sequence=sequence,
         transcript=transcript,
         duration_seconds=duration,
@@ -365,39 +366,46 @@ async def remove_lecture(
     await db.commit()
 
 
-async def generate_final_summary(db: AsyncSession, *, lecture_id: UUID) -> None:
-    lecture = await get_lecture_with_segments(db, lecture_id)
-    if not lecture:
-        logger.warning("generate_final_summary: lecture %s not found", lecture_id)
-        return
+async def generate_final_summary(lecture_id: UUID) -> None:
+    async with AsyncSessionLocal() as db:
+        lecture = await get_lecture_with_segments(db, lecture_id)
+        if not lecture:
+            logger.warning("generate_final_summary: lecture %s not found", lecture_id)
+            return
 
-    segments_sorted = sorted(lecture.segments, key=lambda s: s.sequence)
-    if not segments_sorted:
-        logger.info("generate_final_summary: lecture %s has no segments, skipping", lecture_id)
-        return
+        segments_sorted = sorted(lecture.segments, key=lambda s: s.sequence)
+        if not segments_sorted:
+            logger.info("generate_final_summary: lecture %s has no segments, skipping", lecture_id)
+            return
 
-    full_transcript = "\n\n".join(s.transcript for s in segments_sorted)
-    subject_name = lecture.category.name if lecture.category else None
+        full_transcript = "\n\n".join(s.transcript for s in segments_sorted)
+        lecture_title = lecture.title
+        subject_name = lecture.category.name if lecture.category else None
 
-    summary_task = build_final_summary(
-        full_transcript=full_transcript,
-        lecture_title=lecture.title,
-        subject_name=subject_name,
+    summary_result, tree_result = await asyncio.gather(
+        build_final_summary(
+            full_transcript=full_transcript,
+            lecture_title=lecture_title,
+            subject_name=subject_name,
+        ),
+        build_final_tree(
+            full_transcript=full_transcript,
+            lecture_title=lecture_title,
+            subject_name=subject_name,
+        ),
     )
-    tree_task = build_final_tree(
-        full_transcript=full_transcript,
-        lecture_title=lecture.title,
-        subject_name=subject_name,
-    )
 
-    summary_result, tree_result = await asyncio.gather(summary_task, tree_task)
+    async with AsyncSessionLocal() as db:
+        lecture = await get_lecture_by_id(db, lecture_id)
+        if lecture is None:
+            logger.warning("generate_final_summary: lecture %s vanished mid-generation", lecture_id)
+            return
+        if summary_result:
+            lecture.summary = summary_result
+        if tree_result:
+            lecture.mindmap_data = {"nodes": tree_result}
+        await db.commit()
 
-    if summary_result:
-        lecture.summary = summary_result
-    if tree_result:
-        lecture.mindmap_data = {"nodes": tree_result}
-
-    await db.commit()
     logger.info(
         "generate_final_summary done for %s: summary_len=%d, nodes=%d",
         lecture_id,

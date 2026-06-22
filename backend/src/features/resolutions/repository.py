@@ -11,7 +11,6 @@ from src.features.questions.models import QuestionModel
 from src.features.resolutions.models import (
     ExamResolutionModel,
     ExamResolutionStatus,
-    QuestionResponseEvaluationModel,
     QuestionResponseItemModel,
     QuestionResponseModel,
 )
@@ -224,12 +223,7 @@ def add_response_item(db: AsyncSession, item: QuestionResponseItemModel) -> None
     db.add(item)
 
 
-async def replace_response_evaluation(
-    db: AsyncSession,
-    response: QuestionResponseModel,
-    evaluation: QuestionResponseEvaluationModel,
-) -> None:
+async def clear_response_evaluations(db: AsyncSession, response: QuestionResponseModel) -> None:
     for old_evaluation in list(response.evaluations):
         await db.delete(old_evaluation)
     await db.flush()
-    db.add(evaluation)

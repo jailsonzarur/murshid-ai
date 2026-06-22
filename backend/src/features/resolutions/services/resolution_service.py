@@ -222,7 +222,7 @@ async def upsert_question_response(
         add_response_item(
             db,
             QuestionResponseItemModel(
-                response_id=response.id,
+                response=response,
                 option_id=item.option_id,
                 text_answer=item.text_answer.strip() if item.text_answer else None,
                 created_at=now,

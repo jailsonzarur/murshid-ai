@@ -23,9 +23,9 @@ from src.features.resolutions.models import (
     ResponseEvaluationSource,
 )
 from src.features.resolutions.repository import (
+    clear_response_evaluations,
     get_question_response_for_evaluation,
     get_resolution_for_evaluation,
-    replace_response_evaluation,
 )
 from src.features.resolutions.schemas.resolution_schemas import (
     QuestionResponseSchema,
@@ -247,8 +247,9 @@ async def persist_response_evaluation(
     output: EvaluationOutput,
 ) -> None:
     now = datetime.now(UTC)
+    await clear_response_evaluations(db, response)
     evaluation = QuestionResponseEvaluationModel(
-        response_id=response.id,
+        response=response,
         score=output.score,
         feedback=output.feedback,
         evaluation_source=output.evaluation_source,
@@ -256,4 +257,4 @@ async def persist_response_evaluation(
         model_name=output.model_name,
         raw_output=output.raw_output,
     )
-    await replace_response_evaluation(db, response, evaluation)
+    db.add(evaluation)

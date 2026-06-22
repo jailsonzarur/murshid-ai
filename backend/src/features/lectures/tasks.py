@@ -18,8 +18,7 @@ def generate_lecture_summary_task(lecture_id: str) -> None:
 async def _generate_lecture_summary_task(lecture_id: UUID) -> None:
     from src.features.lectures.services.lecture_service import generate_final_summary
 
-    async with AsyncSessionLocal() as db:
-        await generate_final_summary(db, lecture_id=lecture_id)
+    await generate_final_summary(lecture_id)
 
 
 @celery_app.task(name="process_imported_lecture_task")
@@ -42,6 +41,7 @@ async def _process_imported_lecture_task(lecture_id: UUID, items: list[dict]) ->
     )
 
     bucket = get_bucket_service()
+    transcription_ok = False
 
     async with AsyncSessionLocal() as db:
         lecture = await get_lecture_with_segments(db, lecture_id)
@@ -77,6 +77,7 @@ async def _process_imported_lecture_task(lecture_id: UUID, items: list[dict]) ->
 
             lecture.status = LectureStatus.COMPLETED
             await db.commit()
+            transcription_ok = True
         except Exception:
             logger.exception("process_imported_lecture_task: failed lecture %s", lecture_id)
             lecture.status = LectureStatus.FAILED
@@ -89,5 +90,7 @@ async def _process_imported_lecture_task(lecture_id: UUID, items: list[dict]) ->
                 except Exception:
                     logger.exception("process_imported_lecture_task: failed to delete %s", key)
 
-        # encadeia a geração final inline (já estamos no Celery worker)
-        await generate_final_summary(db, lecture_id=lecture_id)
+    if not transcription_ok:
+        return
+
+    await generate_final_summary(lecture_id)

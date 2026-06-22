@@ -146,7 +146,7 @@ async def create_exam_and_dispatch_task(
             add_exam_document(
                 db,
                 ExamDocumentModel(
-                    exam_id=exam.id,
+                    exam=exam,
                     file_url=uploaded.file_url,
                     original_name=original_name,
                     mime_type=mime_type,
