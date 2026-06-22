@@ -4,10 +4,11 @@ import { ImportAudioModal } from '../components/lectures/ImportAudioModal'
 import { NovaAulaModal } from '../components/lectures/NovaAulaModal'
 import { AppShell } from '../components/layout/app-shell'
 import { Badge } from '../components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { EmptyState } from '../components/ui/empty-state'
 import { Icon } from '../components/ui/icon'
 import { getAccessToken } from '../lib/auth'
-import { listLectures } from '../lib/api'
+import { deleteLecture, listLectures } from '../lib/api'
 import { navigateTo } from '../lib/navigation'
 import type { LectureStatus, LectureSummary } from '../types/lecture'
 
@@ -46,25 +47,42 @@ export function LecturesPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
   const [isNovaOpen, setIsNovaOpen] = useState(false)
   const [isImportOpen, setIsImportOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<LectureSummary | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  async function loadLectures() {
+    setIsLoading(true)
+    try {
+      const data = await listLectures()
+      setLectures(data)
+    } catch {
+      setLectures([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (!getAccessToken()) {
       navigateTo('/login', { replace: true })
       return
     }
-    async function loadLectures() {
-      setIsLoading(true)
-      try {
-        const data = await listLectures()
-        setLectures(data)
-      } catch {
-        setLectures([])
-      } finally {
-        setIsLoading(false)
-      }
-    }
     void loadLectures()
   }, [])
+
+  async function handleConfirmDelete() {
+    if (!confirmDelete) return
+    setIsDeleting(true)
+    try {
+      await deleteLecture(confirmDelete.id)
+      setConfirmDelete(null)
+      await loadLectures()
+    } catch {
+      return
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   const counts = useMemo(() => {
     const base: Record<StatusFilter, number> = {
@@ -214,6 +232,15 @@ export function LecturesPage() {
                     >
                       <Icon name={live ? 'video' : 'eye'} size={15} />
                     </button>
+                    <button
+                      aria-label={`Excluir aula ${lecture.title ?? 'sem título'}`}
+                      className="icon-btn"
+                      onClick={() => setConfirmDelete(lecture)}
+                      title="Excluir aula"
+                      type="button"
+                    >
+                      <Icon name="trash" size={15} />
+                    </button>
                   </div>
                 </div>
               )
@@ -229,6 +256,42 @@ export function LecturesPage() {
 
       {isNovaOpen ? <NovaAulaModal onClose={() => setIsNovaOpen(false)} /> : null}
       {isImportOpen ? <ImportAudioModal onClose={() => setIsImportOpen(false)} /> : null}
+
+      {confirmDelete ? (
+        <div className="modal-backdrop" role="presentation">
+          <Card style={{ maxWidth: 440, width: '100%' }}>
+            <CardHeader>
+              <CardTitle>Excluir aula</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p style={{ fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+                Tem certeza que deseja excluir{' '}
+                <strong>{confirmDelete.title ?? 'esta aula'}</strong>? Essa ação não pode ser
+                desfeita — a transcrição, o resumo e o mapa mental serão removidos.
+              </p>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
+                <button
+                  className="btn btn-ghost"
+                  disabled={isDeleting}
+                  onClick={() => setConfirmDelete(null)}
+                  type="button"
+                >
+                  Cancelar
+                </button>
+                <button
+                  className="btn btn-danger"
+                  disabled={isDeleting}
+                  onClick={handleConfirmDelete}
+                  type="button"
+                >
+                  <Icon name="trash" size={14} />
+                  <span>{isDeleting ? 'Excluindo...' : 'Excluir'}</span>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
     </AppShell>
   )
 }
