@@ -55,7 +55,7 @@ def _transcode_to_opus(src: Path, dst: Path) -> None:
 
 
 def _split_by_time(src: Path, out_dir: Path, chunk_seconds: float, prefix: str) -> list[Path]:
-    pattern = out_dir / f"{prefix}_%03d.opus"
+    pattern = out_dir / f"{prefix}_%03d.ogg"
     _run(
         [
             "ffmpeg",
@@ -73,7 +73,7 @@ def _split_by_time(src: Path, out_dir: Path, chunk_seconds: float, prefix: str) 
             str(pattern),
         ]
     )
-    return sorted(out_dir.glob(f"{prefix}_*.opus"))
+    return sorted(out_dir.glob(f"{prefix}_*.ogg"))
 
 
 def _prepare_sync(audio_bytes: bytes, filename: str) -> list[tuple[bytes, str]]:
@@ -88,7 +88,7 @@ def _prepare_sync(audio_bytes: bytes, filename: str) -> list[tuple[bytes, str]]:
         src_path = tmp_dir / f"input{suffix}"
         src_path.write_bytes(audio_bytes)
 
-        opus_path = tmp_dir / "compressed.opus"
+        opus_path = tmp_dir / "compressed.ogg"
         try:
             _transcode_to_opus(src_path, opus_path)
         except subprocess.CalledProcessError as exc:
@@ -97,7 +97,7 @@ def _prepare_sync(audio_bytes: bytes, filename: str) -> list[tuple[bytes, str]]:
 
         opus_bytes = opus_path.read_bytes()
         if len(opus_bytes) <= WHISPER_MAX_BYTES:
-            return [(opus_bytes, f"{base}.opus")]
+            return [(opus_bytes, f"{base}.ogg")]
 
         try:
             duration = _probe_duration_seconds(opus_path)
