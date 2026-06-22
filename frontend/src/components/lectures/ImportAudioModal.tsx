@@ -8,7 +8,7 @@ import { Icon } from '../ui/icon'
 import { Input } from '../ui/input'
 
 const MAX_FILES = 10
-const MAX_FILE_BYTES = 25 * 1024 * 1024
+const MAX_FILE_BYTES = 200 * 1024 * 1024
 const ACCEPT_TYPES = '.mp3,.m4a,.wav,.webm,.ogg,.opus,audio/mpeg,audio/mp4,audio/wav,audio/webm,audio/ogg'
 
 type ImportAudioModalProps = {
@@ -94,7 +94,7 @@ export function ImportAudioModal({ onClose }: ImportAudioModalProps) {
     const errors: string[] = []
     for (const file of list) {
       if (file.size > MAX_FILE_BYTES) {
-        errors.push(`${file.name} excede o limite de 25 MB.`)
+        errors.push(`${file.name} excede o limite de 200 MB.`)
         continue
       }
       const entry: Entry = {
@@ -225,7 +225,7 @@ export function ImportAudioModal({ onClose }: ImportAudioModalProps) {
             <div>
               <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Importar áudio</h2>
               <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'var(--ink-4)' }}>
-                Suba até {MAX_FILES} áudios da aula em ordem. Limite de 25 MB por arquivo.
+                Suba até {MAX_FILES} áudios da aula em ordem. Limite de 200 MB por arquivo.
               </p>
             </div>
           </div>
@@ -334,7 +334,7 @@ export function ImportAudioModal({ onClose }: ImportAudioModalProps) {
                   <Icon name="upload" size={18} />
                   <p style={{ margin: '6px 0 0' }}>Clique para selecionar áudios da aula</p>
                   <p style={{ margin: '4px 0 0', fontSize: 11.5 }}>
-                    mp3, m4a, wav, webm, ogg, opus · até 25 MB cada
+                    mp3, m4a, wav, webm, ogg, opus · até 200 MB cada
                   </p>
                 </div>
               ) : (

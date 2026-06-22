@@ -16,7 +16,7 @@ from src.shared.schemas.http import ErrorResponse, SuccessResponse
 router = APIRouter()
 
 MAX_FILES = 10
-MAX_FILE_BYTES = 25 * 1024 * 1024  # 25 MB (Whisper limit)
+MAX_FILE_BYTES = 200 * 1024 * 1024  # 200 MB — worker fatia em pedaços p/ Whisper
 ALLOWED_MIME_TYPES = {
     "audio/mpeg",
     "audio/mp3",
@@ -76,7 +76,7 @@ async def import_lecture_route(
             raise _validation_error(f"Arquivo {upload.filename or index + 1} está vazio.")
         if len(content) > MAX_FILE_BYTES:
             raise _validation_error(
-                f"Arquivo {upload.filename or index + 1} excede o limite de 25 MB.",
+                f"Arquivo {upload.filename or index + 1} excede o limite de 200 MB.",
             )
         mime = (upload.content_type or "").lower()
         if mime and mime not in ALLOWED_MIME_TYPES:

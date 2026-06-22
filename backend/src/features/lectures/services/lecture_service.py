@@ -14,7 +14,7 @@ from src.features.files.services.bucket_service import get_bucket_service
 from src.features.lectures.ai.final_summary_agent import build_final_summary
 from src.features.lectures.ai.live_insight_agent import generate_live_insight
 from src.features.lectures.ai.mindmap_tree_agent import build_final_tree
-from src.features.lectures.ai.transcription import transcribe_audio_chunk
+from src.features.lectures.ai.transcription import transcribe_audio_file
 from src.features.lectures.models import LectureModel, LectureSegmentModel, LectureStatus
 from src.features.lectures.repository import (
     add_segment,
@@ -220,7 +220,7 @@ async def _transcribe_and_persist_segment(
     Não valida ownership/status — o caller faz.
     Não dá commit — o caller agrupa transações.
     """
-    transcript = await transcribe_audio_chunk(audio_bytes, filename)
+    transcript = await transcribe_audio_file(audio_bytes, filename)
     new_offset = lecture.duration_seconds + duration
     segment = LectureSegmentModel(
         lecture=lecture,

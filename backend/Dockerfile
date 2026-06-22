@@ -10,18 +10,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_SYSTEM_PYTHON=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libglib2.0-0 \
-    libgl1 \
-    libmagic1 \
-    libsm6 \
-    libxext6 \
-    poppler-data \
-    poppler-utils \
     postgresql-client \
-    tesseract-ocr \
-    tesseract-ocr-por \
-    tesseract-ocr-script-latn \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:0.5.31 /uv /usr/local/bin/uv
