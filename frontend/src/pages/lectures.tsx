@@ -67,7 +67,20 @@ export function LecturesPage() {
       navigateTo('/login', { replace: true })
       return
     }
-    void loadLectures()
+    let cancelled = false
+    listLectures()
+      .then((data) => {
+        if (!cancelled) setLectures(data)
+      })
+      .catch(() => {
+        if (!cancelled) setLectures([])
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   async function handleConfirmDelete() {
