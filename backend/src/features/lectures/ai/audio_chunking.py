@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 WHISPER_MAX_BYTES = 24 * 1024 * 1024
 CHUNK_TARGET_BYTES = 20 * 1024 * 1024
+CHUNK_TARGET_SECONDS = 600
+MIN_CHUNK_BYTES = 4 * 1024
 
 
 def _run(cmd: list[str]) -> subprocess.CompletedProcess[bytes]:
@@ -76,8 +78,11 @@ def _split_by_time(src: Path, out_dir: Path, chunk_seconds: float, prefix: str) 
     return sorted(out_dir.glob(f"{prefix}_*.ogg"))
 
 
-def _prepare_sync(audio_bytes: bytes, filename: str) -> list[tuple[bytes, str]]:
-    if len(audio_bytes) <= WHISPER_MAX_BYTES:
+def _prepare_sync(
+    audio_bytes: bytes, filename: str, duration_hint: float | None = None
+) -> list[tuple[bytes, str]]:
+    longo = duration_hint is not None and duration_hint > CHUNK_TARGET_SECONDS
+    if len(audio_bytes) <= WHISPER_MAX_BYTES and not longo:
         return [(audio_bytes, filename)]
 
     base = os.path.splitext(os.path.basename(filename))[0] or "audio"
@@ -96,18 +101,22 @@ def _prepare_sync(audio_bytes: bytes, filename: str) -> list[tuple[bytes, str]]:
             raise RuntimeError(f"ffmpeg transcode failed: {stderr}") from exc
 
         opus_bytes = opus_path.read_bytes()
-        if len(opus_bytes) <= WHISPER_MAX_BYTES:
+        if len(opus_bytes) <= WHISPER_MAX_BYTES and not longo:
             return [(opus_bytes, f"{base}.ogg")]
 
-        try:
-            duration = _probe_duration_seconds(opus_path)
-        except (subprocess.CalledProcessError, ValueError) as exc:
-            raise RuntimeError(f"ffprobe failed to read duration of compressed audio: {exc}") from exc
+        if duration_hint is not None:
+            duration = duration_hint
+        else:
+            try:
+                duration = _probe_duration_seconds(opus_path)
+            except (subprocess.CalledProcessError, ValueError) as exc:
+                raise RuntimeError(f"ffprobe failed to read duration of compressed audio: {exc}") from exc
 
         if duration <= 0:
             raise RuntimeError("compressed audio has non-positive duration")
 
         chunk_seconds = duration * CHUNK_TARGET_BYTES / len(opus_bytes)
+        chunk_seconds = min(chunk_seconds, CHUNK_TARGET_SECONDS)
         chunk_seconds = max(30.0, chunk_seconds)
 
         try:
@@ -122,6 +131,9 @@ def _prepare_sync(audio_bytes: bytes, filename: str) -> list[tuple[bytes, str]]:
         chunks: list[tuple[bytes, str]] = []
         for path in chunk_paths:
             data = path.read_bytes()
+            if len(data) < MIN_CHUNK_BYTES:
+                logger.info("discarding empty audio chunk %s (%d bytes)", path.name, len(data))
+                continue
             if len(data) > WHISPER_MAX_BYTES:
                 logger.warning(
                     "audio chunk %s is %d bytes, above Whisper limit; Whisper will likely reject it",
@@ -129,13 +141,19 @@ def _prepare_sync(audio_bytes: bytes, filename: str) -> list[tuple[bytes, str]]:
                     len(data),
                 )
             chunks.append((data, path.name))
+
+        if not chunks:
+            raise RuntimeError("no usable audio chunks after split")
+
         return chunks
 
 
-async def prepare_audio_for_whisper(audio_bytes: bytes, filename: str) -> list[tuple[bytes, str]]:
+async def prepare_audio_for_whisper(
+    audio_bytes: bytes, filename: str, duration_hint: float | None = None
+) -> list[tuple[bytes, str]]:
     """Return chunks ready for the Whisper API (each ≤ 25 MB).
 
     Small files are passed through. Larger files are re-encoded to opus mono
     24 kbps; if still too large, they are split into time-based chunks.
     """
-    return await asyncio.to_thread(_prepare_sync, audio_bytes, filename)
+    return await asyncio.to_thread(_prepare_sync, audio_bytes, filename, duration_hint)

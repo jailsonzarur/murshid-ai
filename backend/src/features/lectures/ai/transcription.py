@@ -15,7 +15,7 @@ from src.features.lectures.ai.audio_chunking import prepare_audio_for_whisper
 logger = logging.getLogger(__name__)
 
 _MODEL = "whisper-1"
-_WHISPER_CONCURRENCY = 3
+WHISPER_CONCURRENCY = 3
 
 _openai_client: AsyncOpenAI | None = None
 
@@ -56,22 +56,26 @@ async def transcribe_audio_chunk(audio_bytes: bytes, filename: str) -> str:
         raise
 
 
-async def transcribe_audio_file(audio_bytes: bytes, filename: str) -> str:
+async def transcribe_audio_file(
+    audio_bytes: bytes,
+    filename: str,
+    duration_hint: float | None = None,
+    semaphore: asyncio.Semaphore | None = None,
+) -> str:
     """Transcribes an audio file of arbitrary size by chunking when needed.
 
     Splits large files into Whisper-sized pieces, transcribes them in parallel
     bounded by a semaphore, and joins the transcripts in order.
     """
-    chunks = await prepare_audio_for_whisper(audio_bytes, filename)
-    if len(chunks) == 1:
-        chunk_bytes, chunk_name = chunks[0]
-        return await transcribe_audio_chunk(chunk_bytes, chunk_name)
-
-    semaphore = asyncio.Semaphore(_WHISPER_CONCURRENCY)
+    chunks = await prepare_audio_for_whisper(audio_bytes, filename, duration_hint)
+    sem = semaphore or asyncio.Semaphore(WHISPER_CONCURRENCY)
 
     async def run(chunk_bytes: bytes, chunk_name: str) -> str:
-        async with semaphore:
+        async with sem:
             return await transcribe_audio_chunk(chunk_bytes, chunk_name)
+
+    if len(chunks) == 1:
+        return await run(*chunks[0])
 
     transcripts = await asyncio.gather(*(run(b, n) for b, n in chunks))
     return " ".join(text.strip() for text in transcripts if text and text.strip())

@@ -221,16 +221,15 @@ async def _transcribe_and_persist_segment(
     Não dá commit — o caller agrupa transações.
     """
     transcript = await transcribe_audio_file(audio_bytes, filename)
-    new_offset = lecture.duration_seconds + duration
     segment = LectureSegmentModel(
         lecture=lecture,
         sequence=sequence,
         transcript=transcript,
         duration_seconds=duration,
-        offset_seconds=new_offset,
+        offset_seconds=lecture.duration_seconds,
     )
     await add_segment(db, segment)
-    lecture.duration_seconds = new_offset
+    lecture.duration_seconds += duration
     return segment
 
 
