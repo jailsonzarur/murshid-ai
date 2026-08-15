@@ -9,7 +9,7 @@ import { Input } from '../ui/input'
 
 const MAX_FILES = 10
 const MAX_FILE_BYTES = 200 * 1024 * 1024
-const ACCEPT_TYPES = '.mp3,.m4a,.wav,.webm,.ogg,.opus,audio/mpeg,audio/mp4,audio/wav,audio/webm,audio/ogg'
+const ACCEPT_TYPES = '.mp3,.mp4,.m4a,.wav,.webm,.ogg,.opus,audio/mpeg,audio/mp4,video/mp4,audio/wav,audio/webm,audio/ogg'
 
 type ImportAudioModalProps = {
   onClose: () => void

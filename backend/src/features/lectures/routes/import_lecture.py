@@ -21,6 +21,7 @@ ALLOWED_MIME_TYPES = {
     "audio/mpeg",
     "audio/mp3",
     "audio/mp4",
+    "video/mp4",
     "audio/m4a",
     "audio/x-m4a",
     "audio/wav",
@@ -81,7 +82,7 @@ async def import_lecture_route(
         mime = (upload.content_type or "").lower()
         if mime and mime not in ALLOWED_MIME_TYPES:
             raise _validation_error(
-                f"Formato não suportado: {mime}. Aceitos: mp3, m4a, wav, webm, ogg, opus.",
+                f"Formato não suportado: {mime}. Aceitos: mp3, mp4, m4a, wav, webm, ogg, opus.",
             )
 
         try:
