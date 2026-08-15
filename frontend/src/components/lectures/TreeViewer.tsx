@@ -3,6 +3,7 @@ import {
   Background,
   Controls,
   Handle,
+  NodeResizer,
   Position,
   ReactFlow,
   ReactFlowProvider,
@@ -84,6 +85,8 @@ function buildLayout(
       id: node.id,
       type: 'topic',
       position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - NODE_HEIGHT / 2 },
+      width: NODE_WIDTH,
+      height: NODE_HEIGHT,
       data: {
         label: node.label,
         summary: node.summary,
@@ -97,14 +100,18 @@ function buildLayout(
   return { nodes, edges }
 }
 
-function TopicNode({ data }: NodeProps<TopicRFNode>) {
+function TopicNode({ data, selected }: NodeProps<TopicRFNode>) {
   const { label, summary, isFresh, isFading, isRoot } = data
 
   return (
     <div
       style={{
-        width: NODE_WIDTH,
-        minHeight: NODE_HEIGHT,
+        width: '100%',
+        height: '100%',
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
         padding: '12px 14px',
         borderRadius: 12,
         background: isRoot ? 'oklch(58% 0.18 285)' : '#fff',
@@ -121,6 +128,13 @@ function TopicNode({ data }: NodeProps<TopicRFNode>) {
         fontFamily: 'var(--sans)',
       }}
     >
+      <NodeResizer
+        isVisible={selected && !isFading}
+        minWidth={160}
+        minHeight={64}
+        color="oklch(58% 0.18 285)"
+        handleStyle={{ width: 8, height: 8, borderRadius: 2 }}
+      />
       <Handle type="target" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
       <div
         style={{
@@ -129,6 +143,7 @@ function TopicNode({ data }: NodeProps<TopicRFNode>) {
           letterSpacing: '-0.01em',
           lineHeight: 1.3,
           marginBottom: summary ? 4 : 0,
+          flexShrink: 0,
         }}
       >
         {label}
@@ -139,9 +154,8 @@ function TopicNode({ data }: NodeProps<TopicRFNode>) {
             fontSize: 11.5,
             color: isRoot ? 'rgba(255,255,255,0.85)' : 'var(--ink-3)',
             lineHeight: 1.4,
-            display: '-webkit-box',
-            WebkitLineClamp: 3,
-            WebkitBoxOrient: 'vertical',
+            flex: 1,
+            minHeight: 0,
             overflow: 'hidden',
           }}
           title={summary}
