@@ -5,6 +5,7 @@ import {
   Handle,
   NodeResizer,
   Position,
+  getNodesBounds,
   ReactFlow,
   ReactFlowProvider,
   useEdgesState,
@@ -23,8 +24,50 @@ import { Icon } from '../ui/icon'
 
 const NODE_WIDTH = 260
 const NODE_HEIGHT = 96
+const NODE_PADDING_Y = 12
+const NODE_PADDING_X = 14
+const TITLE_SIZE = 13.5
+const TITLE_LINE_HEIGHT = 1.3
+const SUMMARY_SIZE = 11.5
+const SUMMARY_LINE_HEIGHT = 1.4
+const TITLE_CSS =
+  `font-size:${TITLE_SIZE}px;font-weight:700;line-height:${TITLE_LINE_HEIGHT};letter-spacing:-0.01em`
+const SUMMARY_CSS = `font-size:${SUMMARY_SIZE}px;line-height:${SUMMARY_LINE_HEIGHT}`
 const PULSE_DURATION_MS = 1200
 const FADE_DURATION_MS = 400
+
+const heightCache = new Map<string, number>()
+
+function measureNodeHeight(label: string, summary: string | null): number {
+  const key = `${label}\u0000${summary ?? ''}`
+  const cached = heightCache.get(key)
+  if (cached !== undefined) return cached
+
+  const probe = document.createElement('div')
+  probe.style.cssText =
+    `position:absolute;left:-9999px;top:0;visibility:hidden;width:${NODE_WIDTH}px;` +
+    `box-sizing:border-box;padding:${NODE_PADDING_Y}px ${NODE_PADDING_X}px;` +
+    'border:1px solid transparent;font-family:var(--sans)'
+
+  const title = document.createElement('div')
+  title.textContent = label
+  title.style.cssText = `${TITLE_CSS};margin-bottom:${summary ? 4 : 0}px`
+  probe.appendChild(title)
+
+  if (summary) {
+    const body = document.createElement('div')
+    body.textContent = summary
+    body.style.cssText = SUMMARY_CSS
+    probe.appendChild(body)
+  }
+
+  document.body.appendChild(probe)
+  const height = Math.max(NODE_HEIGHT, Math.ceil(probe.getBoundingClientRect().height))
+  probe.remove()
+
+  heightCache.set(key, height)
+  return height
+}
 
 type NodeData = {
   label: string
@@ -52,8 +95,11 @@ function buildLayout(
 
   const validIds = new Set(lectureNodes.map((node) => node.id))
 
+  const heights = new Map<string, number>()
   lectureNodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT })
+    const height = measureNodeHeight(node.label, node.summary)
+    heights.set(node.id, height)
+    dagreGraph.setNode(node.id, { width: NODE_WIDTH, height })
   })
 
   const edges: Edge[] = []
@@ -81,12 +127,13 @@ function buildLayout(
 
   const nodes: TopicRFNode[] = lectureNodes.map((node) => {
     const pos = dagreGraph.node(node.id)
+    const height = heights.get(node.id) ?? NODE_HEIGHT
     return {
       id: node.id,
       type: 'topic',
-      position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - NODE_HEIGHT / 2 },
+      position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - height / 2 },
       width: NODE_WIDTH,
-      height: NODE_HEIGHT,
+      height,
       data: {
         label: node.label,
         summary: node.summary,
@@ -104,7 +151,8 @@ function TopicNode({ data, selected }: NodeProps<TopicRFNode>) {
   const { label, summary, isFresh, isFading, isRoot } = data
 
   return (
-    <div
+    <>
+      <div
       style={{
         width: '100%',
         height: '100%',
@@ -112,7 +160,7 @@ function TopicNode({ data, selected }: NodeProps<TopicRFNode>) {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        padding: '12px 14px',
+        padding: `${NODE_PADDING_Y}px ${NODE_PADDING_X}px`,
         borderRadius: 12,
         background: isRoot ? 'oklch(58% 0.18 285)' : '#fff',
         color: isRoot ? '#fff' : 'var(--ink)',
@@ -128,20 +176,13 @@ function TopicNode({ data, selected }: NodeProps<TopicRFNode>) {
         fontFamily: 'var(--sans)',
       }}
     >
-      <NodeResizer
-        isVisible={selected && !isFading}
-        minWidth={160}
-        minHeight={64}
-        color="oklch(58% 0.18 285)"
-        handleStyle={{ width: 8, height: 8, borderRadius: 2 }}
-      />
       <Handle type="target" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
       <div
         style={{
-          fontSize: 13.5,
+          fontSize: TITLE_SIZE,
           fontWeight: 700,
           letterSpacing: '-0.01em',
-          lineHeight: 1.3,
+          lineHeight: TITLE_LINE_HEIGHT,
           marginBottom: summary ? 4 : 0,
           flexShrink: 0,
         }}
@@ -151,9 +192,9 @@ function TopicNode({ data, selected }: NodeProps<TopicRFNode>) {
       {summary ? (
         <div
           style={{
-            fontSize: 11.5,
+            fontSize: SUMMARY_SIZE,
             color: isRoot ? 'rgba(255,255,255,0.85)' : 'var(--ink-3)',
-            lineHeight: 1.4,
+            lineHeight: SUMMARY_LINE_HEIGHT,
             flex: 1,
             minHeight: 0,
             overflow: 'hidden',
@@ -164,7 +205,14 @@ function TopicNode({ data, selected }: NodeProps<TopicRFNode>) {
         </div>
       ) : null}
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0, pointerEvents: 'none' }} />
-    </div>
+      </div>
+      <NodeResizer
+        isVisible={selected && !isFading}
+        minWidth={160}
+        minHeight={64}
+        color="oklch(58% 0.18 285)"
+      />
+    </>
   )
 }
 
@@ -190,6 +238,20 @@ function TreeViewerInner({
     new Map(lectureNodes.map((node) => [node.id, node])),
   )
   const { fitView } = useReactFlow()
+  const [isExporting, setIsExporting] = useState(false)
+  const [fontsReady, setFontsReady] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    void document.fonts.ready.then(() => {
+      if (cancelled) return
+      heightCache.clear()
+      setFontsReady(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // sync displayedNodes from prop, detect additions/removals/updates
   useEffect(() => {
@@ -256,15 +318,33 @@ function TreeViewerInner({
 
   const layout = useMemo(
     () => buildLayout(displayedNodes, freshIds, fadingIds),
-    [displayedNodes, freshIds, fadingIds],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [displayedNodes, freshIds, fadingIds, fontsReady],
   )
 
   const [nodes, setNodes, onNodesChange] = useNodesState<TopicRFNode>(layout.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(layout.edges)
 
+  const laidOutIdsRef = useRef('')
+
   useEffect(() => {
-    setNodes(layout.nodes)
+    setNodes((current) => {
+      const previous = new Map(current.map((node) => [node.id, node]))
+      return layout.nodes.map((node) => {
+        const existing = previous.get(node.id)
+        if (!existing) return node
+        const sameText =
+          existing.data.label === node.data.label && existing.data.summary === node.data.summary
+        if (!sameText) return { ...node, selected: existing.selected }
+        return { ...node, selected: existing.selected, width: existing.width, height: existing.height }
+      })
+    })
     setEdges(layout.edges)
+
+    const ids = layout.nodes.map((node) => node.id).join('|')
+    if (ids === laidOutIdsRef.current) return
+    laidOutIdsRef.current = ids
+
     // refit on structure change
     const id = window.setTimeout(() => {
       void fitView({ padding: 0.2, duration: 300 })
@@ -314,6 +394,51 @@ function TreeViewerInner({
     )
   }
 
+  const handleExport = async () => {
+    const viewportEl = document.querySelector('.react-flow__viewport')
+    if (!(viewportEl instanceof HTMLElement) || nodes.length === 0) return
+
+    setIsExporting(true)
+    setNodes((current) => current.map((node) => (node.selected ? { ...node, selected: false } : node)))
+
+    try {
+      await new Promise((resolve) => window.setTimeout(resolve, 32))
+
+      const bounds = getNodesBounds(nodes)
+      const padding = 48
+      const width = Math.ceil(bounds.width + padding * 2)
+      const height = Math.ceil(bounds.height + padding * 2)
+
+      const { toPng } = await import('html-to-image')
+      const dataUrl = await toPng(viewportEl, {
+        backgroundColor: '#fff',
+        width,
+        height,
+        pixelRatio: 2,
+        style: {
+          width: `${width}px`,
+          height: `${height}px`,
+          transform: `translate(${padding - bounds.x}px, ${padding - bounds.y}px) scale(1)`,
+        },
+      })
+
+      const root = displayedNodes.find((node) => node.parent_id === null)
+      const slug = (root?.label ?? 'mapa-da-aula')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .toLowerCase()
+
+      const anchor = document.createElement('a')
+      anchor.href = dataUrl
+      anchor.download = `${slug || 'mapa-da-aula'}.png`
+      anchor.click()
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   return (
     <ReactFlow
       nodes={nodes}
@@ -341,6 +466,25 @@ function TreeViewerInner({
         }}
       >
         {isProcessing ? <UpdatingChip /> : null}
+        <button
+          aria-label="Baixar o mapa como imagem"
+          className="icon-btn"
+          disabled={isExporting}
+          onClick={() => void handleExport()}
+          style={{
+            background: '#fff',
+            border: '1px solid var(--line)',
+            width: 30,
+            height: 30,
+            borderRadius: 8,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+            opacity: isExporting ? 0.5 : 1,
+          }}
+          title={isExporting ? 'Gerando imagem...' : 'Baixar como imagem'}
+          type="button"
+        >
+          <Icon name="arrowDown" size={14} />
+        </button>
         <button
           aria-label={isFullscreen ? 'Sair da tela cheia' : 'Entrar em tela cheia'}
           className="icon-btn"
@@ -461,6 +605,29 @@ export function TreeViewer({ lectureNodes, isProcessing = false, className, styl
         }
         @keyframes tree-spin {
           to { transform: rotate(360deg); }
+        }
+        .react-flow__resize-control.line.left,
+        .react-flow__resize-control.line.right {
+          width: 18px;
+        }
+        .react-flow__resize-control.line.top,
+        .react-flow__resize-control.line.bottom {
+          height: 18px;
+        }
+        .react-flow__resize-control.handle {
+          width: 28px;
+          height: 28px;
+          background: transparent !important;
+          border: none;
+          border-radius: 0;
+        }
+        .react-flow__resize-control.handle::after {
+          content: '';
+          position: absolute;
+          inset: 8px;
+          border-radius: 3px;
+          background: oklch(58% 0.18 285);
+          box-shadow: 0 0 0 1px #fff;
         }
       `}</style>
     </div>
