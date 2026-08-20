@@ -33,6 +33,7 @@ const SUMMARY_LINE_HEIGHT = 1.4
 const TITLE_CSS =
   `font-size:${TITLE_SIZE}px;font-weight:700;line-height:${TITLE_LINE_HEIGHT};letter-spacing:-0.01em`
 const SUMMARY_CSS = `font-size:${SUMMARY_SIZE}px;line-height:${SUMMARY_LINE_HEIGHT}`
+const PRINT_STAGE_ID = 'tree-print-stage'
 const PULSE_DURATION_MS = 1200
 const FADE_DURATION_MS = 400
 
@@ -394,6 +395,55 @@ function TreeViewerInner({
     )
   }
 
+  const handleExportPdf = () => {
+    const viewportEl = document.querySelector('.react-flow__viewport')
+    if (!(viewportEl instanceof HTMLElement) || nodes.length === 0) return
+
+    const bounds = getNodesBounds(nodes)
+    const padding = 48
+    const width = Math.ceil(bounds.width + padding * 2)
+    const height = Math.ceil(bounds.height + padding * 2)
+
+    const clone = viewportEl.cloneNode(true) as HTMLElement
+    clone.style.transform = `translate(${padding - bounds.x}px, ${padding - bounds.y}px) scale(1)`
+    clone.style.transformOrigin = '0 0'
+    clone.querySelectorAll('.react-flow__resize-control').forEach((element) => element.remove())
+
+    const stage = document.createElement('div')
+    stage.id = PRINT_STAGE_ID
+    stage.className = 'react-flow'
+    stage.style.cssText =
+      `position:relative;width:${width}px;height:${height}px;background:#fff;overflow:hidden`
+    stage.appendChild(clone)
+
+    const style = document.createElement('style')
+    style.textContent = `
+      @media screen { #${PRINT_STAGE_ID} { display: none } }
+      @media print {
+        @page { size: ${width}px ${height}px; margin: 0 }
+        html, body { margin: 0 !important; padding: 0 !important; background: #fff !important }
+        body > *:not(#${PRINT_STAGE_ID}) { display: none !important }
+        #${PRINT_STAGE_ID} { position: absolute; left: 0; top: 0 }
+        #${PRINT_STAGE_ID}, #${PRINT_STAGE_ID} * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+      }
+    `
+
+    const cleanup = () => {
+      stage.remove()
+      style.remove()
+      window.removeEventListener('afterprint', cleanup)
+    }
+
+    document.body.appendChild(style)
+    document.body.appendChild(stage)
+    window.addEventListener('afterprint', cleanup)
+    window.setTimeout(cleanup, 60000)
+    window.print()
+  }
+
   const handleExport = async () => {
     const viewportEl = document.querySelector('.react-flow__viewport')
     if (!(viewportEl instanceof HTMLElement) || nodes.length === 0) return
@@ -466,6 +516,23 @@ function TreeViewerInner({
         }}
       >
         {isProcessing ? <UpdatingChip /> : null}
+        <button
+          aria-label="Baixar o mapa em PDF"
+          className="icon-btn"
+          onClick={handleExportPdf}
+          style={{
+            background: '#fff',
+            border: '1px solid var(--line)',
+            width: 30,
+            height: 30,
+            borderRadius: 8,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          }}
+          title="Baixar como PDF"
+          type="button"
+        >
+          <Icon name="fileText" size={14} />
+        </button>
         <button
           aria-label="Baixar o mapa como imagem"
           className="icon-btn"
