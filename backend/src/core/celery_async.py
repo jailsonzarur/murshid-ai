@@ -2,18 +2,20 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Coroutine
-from typing import Any
+from typing import Any, TypeVar
 
 from celery.signals import worker_process_shutdown
 
 from src.database import close_db
 
+T = TypeVar("T")
+
 _worker_loop: asyncio.AbstractEventLoop | None = None
 
 
-def run_async(coro: Coroutine[Any, Any, None]) -> None:
+def run_async(coro: Coroutine[Any, Any, T]) -> T:
     loop = get_or_create_worker_loop()
-    loop.run_until_complete(coro)
+    return loop.run_until_complete(coro)
 
 
 def get_or_create_worker_loop() -> asyncio.AbstractEventLoop:

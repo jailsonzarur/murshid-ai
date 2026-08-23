@@ -343,8 +343,8 @@ async def start_import_lecture(
             detail={"success": False, "errors": ["Falha ao subir os áudios. Tente novamente."], "data": None},
         )
 
-    from src.features.lectures.tasks import process_imported_lecture_task
-    cast(Any, process_imported_lecture_task).delay(str(lecture.id), task_items)
+    from src.features.lectures.tasks import dispatch_import_lecture
+    dispatch_import_lecture(lecture.id, task_items)
 
     return _build_summary(lecture)
 
