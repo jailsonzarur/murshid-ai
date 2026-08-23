@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 
 import { SummaryModal } from '../components/lectures/SummaryModal'
+import { SummaryPdfButton } from '../components/lectures/SummaryPdfButton'
 import { TranscriptModal } from '../components/lectures/TranscriptModal'
 import { TreeViewer } from '../components/lectures/TreeViewer'
 import { AppShell } from '../components/layout/app-shell'
@@ -181,9 +182,19 @@ export function LectureViewerPage() {
                   <CardTitle>Resumo da aula</CardTitle>
                   <div className="card-sub">Gerado por IA a partir da transcrição</div>
                 </div>
-                <span className="tag accent">
-                  <Icon name="sparkles" size={11} /> IA
-                </span>
+                {lecture.summary ? (
+                  <SummaryPdfButton
+                    durationLabel={formatDuration(lecture.duration_seconds)}
+                    lectureTitle={lecture.title}
+                    subjectName={lecture.category?.name ?? null}
+                    summary={lecture.summary}
+                    topicsCount={lecture.nodes.length}
+                  />
+                ) : (
+                  <span className="tag accent">
+                    <Icon name="sparkles" size={11} /> IA
+                  </span>
+                )}
               </CardHeader>
               <CardContent
                 style={{

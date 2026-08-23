@@ -517,21 +517,21 @@ function TreeViewerInner({
       >
         {isProcessing ? <UpdatingChip /> : null}
         <button
-          aria-label="Baixar o mapa em PDF"
-          className="icon-btn"
+          aria-label="Exportar o mapa de tópicos em PDF"
+          className="btn btn-sm"
           onClick={handleExportPdf}
           style={{
             background: '#fff',
             border: '1px solid var(--line)',
-            width: 30,
             height: 30,
             borderRadius: 8,
             boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
           }}
-          title="Baixar como PDF"
+          title="Exportar o mapa de tópicos em PDF"
           type="button"
         >
-          <Icon name="fileText" size={14} />
+          <Icon name="fileText" size={13} />
+          <span>Exportar PDF</span>
         </button>
         <button
           aria-label="Baixar o mapa como imagem"
