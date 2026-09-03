@@ -41,6 +41,13 @@ class FakeMinioClient:
             "ContentType": content_type,
         }
 
+    def fget_object(self, bucket_name: str, object_name: str, file_path: str):
+        if (bucket_name, object_name) not in self.objects:
+            raise FakeMinioNotFoundError()
+
+        with open(file_path, "wb") as destination:
+            destination.write(self.objects[(bucket_name, object_name)]["Body"])
+
     def get_object(self, bucket_name: str, object_name: str):
         if (bucket_name, object_name) not in self.objects:
             raise FakeMinioNotFoundError()
@@ -88,6 +95,17 @@ def test_upload_stream_sends_the_file_without_loading_it():
     assert uploaded.size == 11
     assert uploaded.content_type == "audio/mpeg"
     assert service.get(uploaded.key).content == b"audio bytes"
+
+
+def test_download_to_writes_straight_to_disk(tmp_path):
+    client = FakeMinioClient()
+    service = MinioBucketService(client=client, bucket_name="iasmim")
+    uploaded = service.upload(b"audio bytes", "aula.mp3", folder="lectures")
+
+    destination = tmp_path / "aula.mp3"
+    service.download_to(uploaded.key, destination)
+
+    assert destination.read_bytes() == b"audio bytes"
 
 
 @pytest.mark.parametrize("key", ["../secret.txt", "exams/../../secret.txt", ""])
