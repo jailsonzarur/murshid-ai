@@ -17,6 +17,7 @@ router = APIRouter()
 
 MAX_FILES = 10
 MAX_FILE_BYTES = 200 * 1024 * 1024  # 200 MB — worker fatia em pedaços p/ Whisper
+MAX_TOTAL_BYTES = 400 * 1024 * 1024  # teto agregado por aula
 ALLOWED_MIME_TYPES = {
     "audio/mpeg",
     "audio/mp3",
@@ -40,6 +41,63 @@ def _validation_error(message: str) -> HTTPException:
     )
 
 
+def _as_mb(value: int) -> int:
+    return value // (1024 * 1024)
+
+
+def _parse_durations(durations: str, file_count: int) -> list:
+    try:
+        parsed = json.loads(durations)
+    except json.JSONDecodeError:
+        raise _validation_error("Campo `durations` precisa ser um JSON válido (array de números).")
+
+    if not isinstance(parsed, list) or len(parsed) != file_count:
+        raise _validation_error(
+            "Forneça uma duração (em segundos) para cada arquivo, na mesma ordem.",
+        )
+
+    return parsed
+
+
+def _validate_uploads(files: list[UploadFile], parsed_durations: list) -> list[float]:
+    validated: list[float] = []
+    total_bytes = 0
+
+    for index, upload in enumerate(files):
+        label = upload.filename or index + 1
+
+        size = upload.size
+        if size is None:
+            raise _validation_error(f"Não foi possível determinar o tamanho do arquivo {label}.")
+        if size == 0:
+            raise _validation_error(f"Arquivo {label} está vazio.")
+        if size > MAX_FILE_BYTES:
+            raise _validation_error(f"Arquivo {label} excede o limite de {_as_mb(MAX_FILE_BYTES)} MB.")
+
+        total_bytes += size
+        if total_bytes > MAX_TOTAL_BYTES:
+            raise _validation_error(
+                f"Os arquivos somam mais de {_as_mb(MAX_TOTAL_BYTES)} MB. Envie menos arquivos por aula.",
+            )
+
+        mime = (upload.content_type or "").lower()
+        if mime and mime not in ALLOWED_MIME_TYPES:
+            raise _validation_error(
+                f"Formato não suportado: {mime}. Aceitos: mp3, mp4, m4a, wav, webm, ogg, opus.",
+            )
+
+        try:
+            duration = float(parsed_durations[index])
+        except (TypeError, ValueError):
+            raise _validation_error(f"Duração inválida para o arquivo {index + 1}.")
+        if duration <= 0:
+            raise _validation_error(f"Duração inválida para o arquivo {index + 1}.")
+
+        validated.append(duration)
+
+    return validated
+
+
 @router.post(
     "/import",
     operation_id="importLecture",
@@ -60,44 +118,17 @@ async def import_lecture_route(
     if len(files) > MAX_FILES:
         raise _validation_error(f"Máximo de {MAX_FILES} arquivos por aula.")
 
-    try:
-        parsed_durations = json.loads(durations)
-    except json.JSONDecodeError:
-        raise _validation_error("Campo `durations` precisa ser um JSON válido (array de números).")
-
-    if not isinstance(parsed_durations, list) or len(parsed_durations) != len(files):
-        raise _validation_error(
-            "Forneça uma duração (em segundos) para cada arquivo, na mesma ordem.",
-        )
+    parsed_durations = _parse_durations(durations, len(files))
+    validated_durations = _validate_uploads(files, parsed_durations)
 
     audio_items: list[ImportAudioItem] = []
     for index, upload in enumerate(files):
-        content = await upload.read()
-        if not content:
-            raise _validation_error(f"Arquivo {upload.filename or index + 1} está vazio.")
-        if len(content) > MAX_FILE_BYTES:
-            raise _validation_error(
-                f"Arquivo {upload.filename or index + 1} excede o limite de 200 MB.",
-            )
-        mime = (upload.content_type or "").lower()
-        if mime and mime not in ALLOWED_MIME_TYPES:
-            raise _validation_error(
-                f"Formato não suportado: {mime}. Aceitos: mp3, mp4, m4a, wav, webm, ogg, opus.",
-            )
-
-        try:
-            duration = float(parsed_durations[index])
-        except (TypeError, ValueError):
-            raise _validation_error(f"Duração inválida para o arquivo {index + 1}.")
-        if duration <= 0:
-            raise _validation_error(f"Duração inválida para o arquivo {index + 1}.")
-
         audio_items.append(
             ImportAudioItem(
                 filename=upload.filename or f"audio_{index + 1}",
-                content=content,
+                content=await upload.read(),
                 content_type=upload.content_type,
-                duration=duration,
+                duration=validated_durations[index],
             )
         )
 
