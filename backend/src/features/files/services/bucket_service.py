@@ -224,11 +224,6 @@ class MinioBucketService:
         object_key = self._extract_key(key_or_url)
         self.client.fget_object(self.bucket_name, object_key, str(destination_path))
 
-    def download_file(self, key_or_url: str, destination_path: str | Path) -> BucketObject:
-        bucket_object = self.get(key_or_url)
-        Path(destination_path).write_bytes(bucket_object.content)
-        return bucket_object
-
     def delete(self, key_or_url: str) -> None:
         object_key = self._extract_key(key_or_url)
 

@@ -450,7 +450,7 @@ def _download_document(
         suffix = Path(source).suffix or ".bin"
 
     destination_path = output_dir / f"document-{index}{suffix}"
-    bucket_service.download_file(source, destination_path)
+    bucket_service.download_to(source, destination_path)
     return destination_path
 
 
