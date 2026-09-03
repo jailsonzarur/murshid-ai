@@ -57,15 +57,18 @@ async def transcribe_audio_chunk(audio_bytes: bytes, filename: str) -> str:
 
 
 async def transcribe_audio_file(src_path: Path, duration_hint: float | None = None) -> str:
-    chunks = await prepare_audio_for_whisper(src_path, duration_hint)
     sem = asyncio.Semaphore(WHISPER_CONCURRENCY)
 
-    async def run(chunk_bytes: bytes, chunk_name: str) -> str:
+    async def run(chunk_path: Path) -> str:
         async with sem:
-            return await transcribe_audio_chunk(chunk_bytes, chunk_name)
+            chunk_bytes = await asyncio.to_thread(chunk_path.read_bytes)
+            return await transcribe_audio_chunk(chunk_bytes, chunk_path.name)
 
-    if len(chunks) == 1:
-        return await run(*chunks[0])
+    with tempfile.TemporaryDirectory(prefix="whisper-chunk-") as tmp:
+        chunks = await prepare_audio_for_whisper(src_path, Path(tmp), duration_hint)
+        if len(chunks) == 1:
+            return await run(chunks[0])
 
-    transcripts = await asyncio.gather(*(run(b, n) for b, n in chunks))
+        transcripts = await asyncio.gather(*(run(chunk) for chunk in chunks))
+
     return " ".join(text.strip() for text in transcripts if text and text.strip())

@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import subprocess
-import tempfile
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -77,72 +76,68 @@ def _split_by_time(src: Path, out_dir: Path, chunk_seconds: float, prefix: str) 
     return sorted(out_dir.glob(f"{prefix}_*.ogg"))
 
 
-def _prepare_sync(src_path: Path, duration_hint: float | None = None) -> list[tuple[bytes, str]]:
+def _prepare_sync(src_path: Path, out_dir: Path, duration_hint: float | None = None) -> list[Path]:
     longo = duration_hint is not None and duration_hint > CHUNK_TARGET_SECONDS
     if src_path.stat().st_size <= WHISPER_MAX_BYTES and not longo:
-        return [(src_path.read_bytes(), src_path.name)]
+        return [src_path]
 
     base = src_path.stem or "audio"
+    opus_path = out_dir / f"{base}.ogg"
+    try:
+        _transcode_to_opus(src_path, opus_path)
+    except subprocess.CalledProcessError as exc:
+        stderr = exc.stderr.decode(errors="replace")[-500:] if exc.stderr else ""
+        raise RuntimeError(f"ffmpeg transcode failed: {stderr}") from exc
 
-    with tempfile.TemporaryDirectory(prefix="whisper-chunk-") as tmp:
-        tmp_dir = Path(tmp)
+    opus_size = opus_path.stat().st_size
+    if opus_size <= WHISPER_MAX_BYTES and not longo:
+        return [opus_path]
 
-        opus_path = tmp_dir / "compressed.ogg"
+    if duration_hint is not None:
+        duration = duration_hint
+    else:
         try:
-            _transcode_to_opus(src_path, opus_path)
-        except subprocess.CalledProcessError as exc:
-            stderr = exc.stderr.decode(errors="replace")[-500:] if exc.stderr else ""
-            raise RuntimeError(f"ffmpeg transcode failed: {stderr}") from exc
+            duration = _probe_duration_seconds(opus_path)
+        except (subprocess.CalledProcessError, ValueError) as exc:
+            raise RuntimeError(f"ffprobe failed to read duration of compressed audio: {exc}") from exc
 
-        opus_size = opus_path.stat().st_size
-        if opus_size <= WHISPER_MAX_BYTES and not longo:
-            return [(opus_path.read_bytes(), f"{base}.ogg")]
+    if duration <= 0:
+        raise RuntimeError("compressed audio has non-positive duration")
 
-        if duration_hint is not None:
-            duration = duration_hint
-        else:
-            try:
-                duration = _probe_duration_seconds(opus_path)
-            except (subprocess.CalledProcessError, ValueError) as exc:
-                raise RuntimeError(f"ffprobe failed to read duration of compressed audio: {exc}") from exc
+    chunk_seconds = duration * CHUNK_TARGET_BYTES / opus_size
+    chunk_seconds = min(chunk_seconds, CHUNK_TARGET_SECONDS)
+    chunk_seconds = max(30.0, chunk_seconds)
 
-        if duration <= 0:
-            raise RuntimeError("compressed audio has non-positive duration")
+    try:
+        chunk_paths = _split_by_time(opus_path, out_dir, chunk_seconds, base)
+    except subprocess.CalledProcessError as exc:
+        stderr = exc.stderr.decode(errors="replace")[-500:] if exc.stderr else ""
+        raise RuntimeError(f"ffmpeg split failed: {stderr}") from exc
 
-        chunk_seconds = duration * CHUNK_TARGET_BYTES / opus_size
-        chunk_seconds = min(chunk_seconds, CHUNK_TARGET_SECONDS)
-        chunk_seconds = max(30.0, chunk_seconds)
+    if not chunk_paths:
+        raise RuntimeError("ffmpeg produced no chunks")
 
-        try:
-            chunk_paths = _split_by_time(opus_path, tmp_dir, chunk_seconds, base)
-        except subprocess.CalledProcessError as exc:
-            stderr = exc.stderr.decode(errors="replace")[-500:] if exc.stderr else ""
-            raise RuntimeError(f"ffmpeg split failed: {stderr}") from exc
+    chunks: list[Path] = []
+    for path in chunk_paths:
+        size = path.stat().st_size
+        if size < MIN_CHUNK_BYTES:
+            logger.info("discarding empty audio chunk %s (%d bytes)", path.name, size)
+            continue
+        if size > WHISPER_MAX_BYTES:
+            logger.warning(
+                "audio chunk %s is %d bytes, above Whisper limit; Whisper will likely reject it",
+                path.name,
+                size,
+            )
+        chunks.append(path)
 
-        if not chunk_paths:
-            raise RuntimeError("ffmpeg produced no chunks")
+    if not chunks:
+        raise RuntimeError("no usable audio chunks after split")
 
-        chunks: list[tuple[bytes, str]] = []
-        for path in chunk_paths:
-            data = path.read_bytes()
-            if len(data) < MIN_CHUNK_BYTES:
-                logger.info("discarding empty audio chunk %s (%d bytes)", path.name, len(data))
-                continue
-            if len(data) > WHISPER_MAX_BYTES:
-                logger.warning(
-                    "audio chunk %s is %d bytes, above Whisper limit; Whisper will likely reject it",
-                    path.name,
-                    len(data),
-                )
-            chunks.append((data, path.name))
-
-        if not chunks:
-            raise RuntimeError("no usable audio chunks after split")
-
-        return chunks
+    return chunks
 
 
 async def prepare_audio_for_whisper(
-    src_path: Path, duration_hint: float | None = None
-) -> list[tuple[bytes, str]]:
-    return await asyncio.to_thread(_prepare_sync, src_path, duration_hint)
+    src_path: Path, out_dir: Path, duration_hint: float | None = None
+) -> list[Path]:
+    return await asyncio.to_thread(_prepare_sync, src_path, out_dir, duration_hint)
