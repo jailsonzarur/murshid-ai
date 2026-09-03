@@ -73,6 +73,23 @@ def test_upload_and_get_object():
     assert stored.content_type == "application/pdf"
 
 
+def test_upload_stream_sends_the_file_without_loading_it():
+    client = FakeMinioClient()
+    service = MinioBucketService(client=client, bucket_name="iasmim")
+
+    uploaded = service.upload_stream(
+        BytesIO(b"audio bytes"),
+        "aula.mp3",
+        length=11,
+        folder="lectures",
+        content_type="audio/mpeg",
+    )
+
+    assert uploaded.size == 11
+    assert uploaded.content_type == "audio/mpeg"
+    assert service.get(uploaded.key).content == b"audio bytes"
+
+
 @pytest.mark.parametrize("key", ["../secret.txt", "exams/../../secret.txt", ""])
 def test_rejects_invalid_keys(key: str):
     service = MinioBucketService(client=FakeMinioClient(), bucket_name="iasmim")

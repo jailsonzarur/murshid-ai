@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from io import BytesIO
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, BinaryIO
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -128,6 +128,32 @@ class MinioBucketService:
         # URL signatures are valid when the browser hits the public address.
         self._presigned_client = presigned_client or client
 
+    def upload_stream(
+        self,
+        stream: BinaryIO,
+        original_name: str,
+        *,
+        length: int,
+        folder: str | None = None,
+        content_type: str | None = None,
+        key: str | None = None,
+    ) -> BucketUploadResult:
+        object_key = self._build_key(original_name, folder=folder, key=key)
+        self.client.put_object(
+            self.bucket_name,
+            object_key,
+            data=stream,
+            length=length,
+            content_type=content_type,
+        )
+
+        return BucketUploadResult(
+            key=object_key,
+            file_url=self.get_file_url(object_key),
+            content_type=content_type,
+            size=length,
+        )
+
     def upload(
         self,
         content: bytes,
@@ -137,20 +163,13 @@ class MinioBucketService:
         content_type: str | None = None,
         key: str | None = None,
     ) -> BucketUploadResult:
-        object_key = self._build_key(original_name, folder=folder, key=key)
-        self.client.put_object(
-            self.bucket_name,
-            object_key,
-            data=BytesIO(content),
+        return self.upload_stream(
+            BytesIO(content),
+            original_name,
             length=len(content),
+            folder=folder,
             content_type=content_type,
-        )
-
-        return BucketUploadResult(
-            key=object_key,
-            file_url=self.get_file_url(object_key),
-            content_type=content_type,
-            size=len(content),
+            key=key,
         )
 
     def upload_bytes(

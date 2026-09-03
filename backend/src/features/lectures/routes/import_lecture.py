@@ -126,7 +126,8 @@ async def import_lecture_route(
         audio_items.append(
             ImportAudioItem(
                 filename=upload.filename or f"audio_{index + 1}",
-                content=await upload.read(),
+                stream=upload.file,
+                size=upload.size or 0,
                 content_type=upload.content_type,
                 duration=validated_durations[index],
             )

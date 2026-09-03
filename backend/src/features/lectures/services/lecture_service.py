@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, TypedDict, cast
+from typing import Any, BinaryIO, TypedDict, cast
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -82,7 +82,8 @@ def _build_detail(lecture: LectureModel) -> LectureDetailSchema:
 
 class ImportAudioItem(TypedDict):
     filename: str
-    content: bytes
+    stream: BinaryIO
+    size: int
     content_type: str | None
     duration: float
 
@@ -321,9 +322,11 @@ async def start_import_lecture(
         for index, item in enumerate(audio_items, start=1):
             folder = f"lectures/{lecture.id}/imports"
             safe_name = f"{index:02d}_{item['filename']}"
-            upload = bucket.upload_bytes(
-                item["content"],
+            upload = await asyncio.to_thread(
+                bucket.upload_stream,
+                item["stream"],
                 safe_name,
+                length=item["size"],
                 folder=folder,
                 content_type=item["content_type"],
             )

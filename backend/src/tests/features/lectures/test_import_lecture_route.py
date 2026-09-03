@@ -31,11 +31,20 @@ def _summary() -> LectureSummarySchema:
 
 @pytest.fixture
 def import_calls(monkeypatch):
-    """Isola a rota do MinIO e do Celery, guardando o que chegaria no service."""
-    calls: list[dict] = []
+    calls: list[list[dict]] = []
 
     async def fake_start_import_lecture(db, **kwargs):
-        calls.append(kwargs)
+        calls.append(
+            [
+                {
+                    "filename": item["filename"],
+                    "duration": item["duration"],
+                    "size": item["size"],
+                    "content": item["stream"].read(),
+                }
+                for item in kwargs["audio_items"]
+            ]
+        )
         return _summary()
 
     monkeypatch.setattr(route, "start_import_lecture", fake_start_import_lecture)
@@ -77,14 +86,16 @@ def _error(response) -> str:
 
 
 class TestImportLectureValidation:
-    async def test_accepts_a_valid_upload(self, client: AsyncClient, guest_headers: dict, import_calls):
-        response = await _post(client, guest_headers, _files(1024), [12.5])
+    async def test_accepts_a_valid_upload_without_reading_it_into_memory(
+        self, client: AsyncClient, guest_headers: dict, import_calls, forbid_read
+    ):
+        response = await _post(client, guest_headers, _files(1024, 2048), [12.5, 30.0])
 
         assert response.status_code == 201
-        assert len(import_calls) == 1
-        items = import_calls[0]["audio_items"]
-        assert [item["duration"] for item in items] == [12.5]
-        assert items[0]["content"] == b"x" * 1024
+        items = import_calls[0]
+        assert [item["duration"] for item in items] == [12.5, 30.0]
+        assert [item["size"] for item in items] == [1024, 2048]
+        assert [item["content"] for item in items] == [b"x" * 1024, b"x" * 2048]
 
     async def test_rejects_a_file_above_the_individual_limit_without_reading_it(
         self, client: AsyncClient, guest_headers: dict, import_calls, forbid_read, monkeypatch
