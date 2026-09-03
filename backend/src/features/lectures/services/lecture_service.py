@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import tempfile
+from pathlib import Path
 from typing import Any, BinaryIO, TypedDict, cast
 from uuid import UUID
 
@@ -221,7 +223,10 @@ async def _transcribe_and_persist_segment(
     Não valida ownership/status — o caller faz.
     Não dá commit — o caller agrupa transações.
     """
-    transcript = await transcribe_audio_file(audio_bytes, filename)
+    with tempfile.NamedTemporaryFile(suffix=Path(filename).suffix or ".webm") as tmp:
+        tmp.write(audio_bytes)
+        tmp.flush()
+        transcript = await transcribe_audio_file(Path(tmp.name))
     segment = LectureSegmentModel(
         lecture=lecture,
         sequence=sequence,

@@ -56,19 +56,9 @@ async def transcribe_audio_chunk(audio_bytes: bytes, filename: str) -> str:
         raise
 
 
-async def transcribe_audio_file(
-    audio_bytes: bytes,
-    filename: str,
-    duration_hint: float | None = None,
-    semaphore: asyncio.Semaphore | None = None,
-) -> str:
-    """Transcribes an audio file of arbitrary size by chunking when needed.
-
-    Splits large files into Whisper-sized pieces, transcribes them in parallel
-    bounded by a semaphore, and joins the transcripts in order.
-    """
-    chunks = await prepare_audio_for_whisper(audio_bytes, filename, duration_hint)
-    sem = semaphore or asyncio.Semaphore(WHISPER_CONCURRENCY)
+async def transcribe_audio_file(src_path: Path, duration_hint: float | None = None) -> str:
+    chunks = await prepare_audio_for_whisper(src_path, duration_hint)
+    sem = asyncio.Semaphore(WHISPER_CONCURRENCY)
 
     async def run(chunk_bytes: bytes, chunk_name: str) -> str:
         async with sem:

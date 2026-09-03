@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -78,20 +77,15 @@ def _split_by_time(src: Path, out_dir: Path, chunk_seconds: float, prefix: str) 
     return sorted(out_dir.glob(f"{prefix}_*.ogg"))
 
 
-def _prepare_sync(
-    audio_bytes: bytes, filename: str, duration_hint: float | None = None
-) -> list[tuple[bytes, str]]:
+def _prepare_sync(src_path: Path, duration_hint: float | None = None) -> list[tuple[bytes, str]]:
     longo = duration_hint is not None and duration_hint > CHUNK_TARGET_SECONDS
-    if len(audio_bytes) <= WHISPER_MAX_BYTES and not longo:
-        return [(audio_bytes, filename)]
+    if src_path.stat().st_size <= WHISPER_MAX_BYTES and not longo:
+        return [(src_path.read_bytes(), src_path.name)]
 
-    base = os.path.splitext(os.path.basename(filename))[0] or "audio"
+    base = src_path.stem or "audio"
 
     with tempfile.TemporaryDirectory(prefix="whisper-chunk-") as tmp:
         tmp_dir = Path(tmp)
-        suffix = os.path.splitext(filename)[1] or ".bin"
-        src_path = tmp_dir / f"input{suffix}"
-        src_path.write_bytes(audio_bytes)
 
         opus_path = tmp_dir / "compressed.ogg"
         try:
@@ -100,9 +94,9 @@ def _prepare_sync(
             stderr = exc.stderr.decode(errors="replace")[-500:] if exc.stderr else ""
             raise RuntimeError(f"ffmpeg transcode failed: {stderr}") from exc
 
-        opus_bytes = opus_path.read_bytes()
-        if len(opus_bytes) <= WHISPER_MAX_BYTES and not longo:
-            return [(opus_bytes, f"{base}.ogg")]
+        opus_size = opus_path.stat().st_size
+        if opus_size <= WHISPER_MAX_BYTES and not longo:
+            return [(opus_path.read_bytes(), f"{base}.ogg")]
 
         if duration_hint is not None:
             duration = duration_hint
@@ -115,7 +109,7 @@ def _prepare_sync(
         if duration <= 0:
             raise RuntimeError("compressed audio has non-positive duration")
 
-        chunk_seconds = duration * CHUNK_TARGET_BYTES / len(opus_bytes)
+        chunk_seconds = duration * CHUNK_TARGET_BYTES / opus_size
         chunk_seconds = min(chunk_seconds, CHUNK_TARGET_SECONDS)
         chunk_seconds = max(30.0, chunk_seconds)
 
@@ -149,11 +143,6 @@ def _prepare_sync(
 
 
 async def prepare_audio_for_whisper(
-    audio_bytes: bytes, filename: str, duration_hint: float | None = None
+    src_path: Path, duration_hint: float | None = None
 ) -> list[tuple[bytes, str]]:
-    """Return chunks ready for the Whisper API (each ≤ 25 MB).
-
-    Small files are passed through. Larger files are re-encoded to opus mono
-    24 kbps; if still too large, they are split into time-based chunks.
-    """
-    return await asyncio.to_thread(_prepare_sync, audio_bytes, filename, duration_hint)
+    return await asyncio.to_thread(_prepare_sync, src_path, duration_hint)

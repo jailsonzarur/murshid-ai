@@ -53,17 +53,17 @@ def transcribe_import_file_task(self, lecture_id: str, item: dict) -> dict | Non
 
 async def _transcribe_import_file(item: dict) -> str:
     import asyncio
+    import tempfile
+    from pathlib import Path
 
     from src.features.files.services.bucket_service import get_bucket_service
     from src.features.lectures.ai.transcription import transcribe_audio_file
 
     bucket = get_bucket_service()
-    audio = await asyncio.to_thread(bucket.get, item["object_key"])
-    return await transcribe_audio_file(
-        audio.content,
-        item["object_key"].rsplit("/", 1)[-1],
-        duration_hint=float(item["duration"]),
-    )
+    with tempfile.TemporaryDirectory(prefix="whisper-import-") as tmp:
+        src_path = Path(tmp) / item["object_key"].rsplit("/", 1)[-1]
+        await asyncio.to_thread(bucket.download_to, item["object_key"], src_path)
+        return await transcribe_audio_file(src_path, duration_hint=float(item["duration"]))
 
 
 def _delete_object(object_key: str) -> None:
