@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 
-import { ApiError, importLecture, listCategories } from '../../lib/api'
+import { ApiError, importLecture, listSubjects } from '../../lib/api'
 import { navigateTo } from '../../lib/navigation'
-import type { Category } from '../../types/lecture'
+import type { Subject } from '../../types/lecture'
 import { Card, CardContent } from '../ui/card'
 import { Icon } from '../ui/icon'
 import { Input } from '../ui/input'
@@ -62,13 +62,13 @@ async function detectDuration(file: File): Promise<number> {
 }
 
 export function ImportAudioModal({ onClose }: ImportAudioModalProps) {
-  const [categories, setCategories] = useState<Category[]>([])
-  const [isLoadingCategories, setIsLoadingCategories] = useState(true)
+  const [subjects, setSubjects] = useState<Subject[]>([])
+  const [isLoadingSubjects, setIsLoadingSubjects] = useState(true)
   const [title, setTitle] = useState('')
-  const [categoryId, setCategoryId] = useState<string | null>(null)
+  const [subjectId, setSubjectId] = useState<string | null>(null)
   const [entries, setEntries] = useState<Entry[]>([])
   const [titleError, setTitleError] = useState<string | undefined>()
-  const [categoryError, setCategoryError] = useState<string | undefined>()
+  const [subjectError, setSubjectError] = useState<string | undefined>()
   const [filesError, setFilesError] = useState<string | undefined>()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const entryCounterRef = useRef(0)
@@ -77,12 +77,12 @@ export function ImportAudioModal({ onClose }: ImportAudioModalProps) {
   useEffect(() => {
     async function load() {
       try {
-        const data = await listCategories()
-        setCategories(data)
+        const data = await listSubjects()
+        setSubjects(data)
       } catch {
-        setCategories([])
+        setSubjects([])
       } finally {
-        setIsLoadingCategories(false)
+        setIsLoadingSubjects(false)
       }
     }
     void load()
@@ -170,11 +170,11 @@ export function ImportAudioModal({ onClose }: ImportAudioModalProps) {
     } else {
       setTitleError(undefined)
     }
-    if (!categoryId) {
-      setCategoryError('Selecione uma matéria.')
+    if (!subjectId) {
+      setSubjectError('Selecione uma matéria.')
       hasError = true
     } else {
-      setCategoryError(undefined)
+      setSubjectError(undefined)
     }
     if (entries.length === 0) {
       setFilesError('Selecione pelo menos um arquivo de áudio.')
@@ -190,7 +190,7 @@ export function ImportAudioModal({ onClose }: ImportAudioModalProps) {
     try {
       const lecture = await importLecture(
         trimmedTitle,
-        categoryId,
+        subjectId,
         entries.map((e) => ({ file: e.file, duration: e.duration as number })),
       )
       navigateTo(`/lectures/${lecture.id}`)
@@ -253,36 +253,36 @@ export function ImportAudioModal({ onClose }: ImportAudioModalProps) {
               <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>
                 Matéria
               </span>
-              {isLoadingCategories ? (
+              {isLoadingSubjects ? (
                 <p style={{ fontSize: 13, color: 'var(--ink-4)' }}>Buscando matérias...</p>
-              ) : categories.length === 0 ? (
+              ) : subjects.length === 0 ? (
                 <p style={{ fontSize: 13, color: 'var(--ink-4)' }}>
                   Nenhuma matéria cadastrada. Crie uma em <strong>Matérias</strong> antes de importar.
                 </p>
               ) : (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {categories.map((category) => {
-                    const selected = category.id === categoryId
+                  {subjects.map((subject) => {
+                    const selected = subject.id === subjectId
                     return (
                       <button
                         className={selected ? 'tab active' : 'tab'}
-                        key={category.id}
+                        key={subject.id}
                         onClick={() => {
-                          setCategoryId(category.id)
-                          setCategoryError(undefined)
+                          setSubjectId(subject.id)
+                          setSubjectError(undefined)
                         }}
                         style={{ flexShrink: 0 }}
                         type="button"
                       >
-                        {category.name}
+                        {subject.name}
                       </button>
                     )
                   })}
                 </div>
               )}
-              {categoryError ? (
+              {subjectError ? (
                 <span style={{ display: 'block', marginTop: 6, fontSize: 12, color: 'var(--danger)' }}>
-                  {categoryError}
+                  {subjectError}
                 </span>
               ) : null}
             </div>
@@ -450,7 +450,7 @@ export function ImportAudioModal({ onClose }: ImportAudioModalProps) {
           </button>
           <button
             className="btn btn-primary"
-            disabled={isSubmitting || isLoadingCategories || categories.length === 0 || entries.length === 0}
+            disabled={isSubmitting || isLoadingSubjects || subjects.length === 0 || entries.length === 0}
             form="import-audio-form"
             type="submit"
           >

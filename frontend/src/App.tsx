@@ -4,7 +4,7 @@ import './App.css'
 import { ToastViewport } from './components/ui/toast'
 import { clearAuthSession, getAccessToken, isTokenExpired } from './lib/auth'
 import { NAVIGATION_EVENT, navigateTo } from './lib/navigation'
-import { CategoriesPage } from './pages/categories'
+import { SubjectsPage } from './pages/subjects'
 import { DashboardPage } from './pages/dashboard'
 import { LectureRecordPage } from './pages/lecture-record'
 import { LecturesPage } from './pages/lectures'
@@ -16,10 +16,10 @@ const routes = {
   '/login': LoginPage,
   '/dashboard': DashboardPage,
   '/lectures': LecturesPage,
-  '/categories': CategoriesPage,
+  '/subjects': SubjectsPage,
 }
 
-const protectedRoutes = new Set(['/dashboard', '/lectures', '/categories'])
+const protectedRoutes = new Set(['/dashboard', '/lectures', '/subjects'])
 
 function normalizePathname(pathname: string) {
   if (pathname.length > 1 && pathname.endsWith('/')) {

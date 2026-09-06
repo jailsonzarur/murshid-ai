@@ -146,7 +146,7 @@ export function LectureViewerPage() {
               <div className="hero-left">
                 <div className="hero-eyebrow">
                   <span className="eyebrow-dot" />
-                  {lecture.category?.name ?? 'Sem matéria'}
+                  {lecture.subject?.name ?? 'Sem matéria'}
                 </div>
                 <h2 className="hero-title">{lecture.title ?? 'Aula sem título'}</h2>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
@@ -186,7 +186,7 @@ export function LectureViewerPage() {
                   <SummaryPdfButton
                     durationLabel={formatDuration(lecture.duration_seconds)}
                     lectureTitle={lecture.title}
-                    subjectName={lecture.category?.name ?? null}
+                    subjectName={lecture.subject?.name ?? null}
                     summary={lecture.summary}
                     topicsCount={lecture.nodes.length}
                   />
@@ -311,7 +311,7 @@ export function LectureViewerPage() {
               lectureTitle={lecture.title}
               onClose={() => setTranscriptOpen(false)}
               segments={lecture.segments}
-              subjectName={lecture.category?.name ?? null}
+              subjectName={lecture.subject?.name ?? null}
             />
           ) : null}
 
@@ -319,7 +319,7 @@ export function LectureViewerPage() {
             <SummaryModal
               lectureTitle={lecture.title}
               onClose={() => setSummaryOpen(false)}
-              subjectName={lecture.category?.name ?? null}
+              subjectName={lecture.subject?.name ?? null}
               summary={lecture.summary}
             />
           ) : null}

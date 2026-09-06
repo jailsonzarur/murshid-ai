@@ -1,8 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 
-import { ApiError, listCategories, startLecture } from '../../lib/api'
+import { ApiError, listSubjects, startLecture } from '../../lib/api'
 import { navigateTo } from '../../lib/navigation'
-import type { Category } from '../../types/lecture'
+import type { Subject } from '../../types/lecture'
 import { Card, CardContent } from '../ui/card'
 import { Icon } from '../ui/icon'
 import { Input } from '../ui/input'
@@ -12,23 +12,23 @@ type NovaAulaModalProps = {
 }
 
 export function NovaAulaModal({ onClose }: NovaAulaModalProps) {
-  const [categories, setCategories] = useState<Category[]>([])
-  const [isLoadingCategories, setIsLoadingCategories] = useState(true)
+  const [subjects, setSubjects] = useState<Subject[]>([])
+  const [isLoadingSubjects, setIsLoadingSubjects] = useState(true)
   const [title, setTitle] = useState('')
-  const [categoryId, setCategoryId] = useState<string | null>(null)
+  const [subjectId, setSubjectId] = useState<string | null>(null)
   const [titleError, setTitleError] = useState<string | undefined>()
-  const [categoryError, setCategoryError] = useState<string | undefined>()
+  const [subjectError, setSubjectError] = useState<string | undefined>()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     async function load() {
       try {
-        const data = await listCategories()
-        setCategories(data)
+        const data = await listSubjects()
+        setSubjects(data)
       } catch {
-        setCategories([])
+        setSubjects([])
       } finally {
-        setIsLoadingCategories(false)
+        setIsLoadingSubjects(false)
       }
     }
     void load()
@@ -37,22 +37,22 @@ export function NovaAulaModal({ onClose }: NovaAulaModalProps) {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const trimmedTitle = title.trim()
-    const nextErrors: { title?: string; category?: string } = {}
+    const nextErrors: { title?: string; subject?: string } = {}
 
     if (!trimmedTitle) {
       nextErrors.title = 'Informe um nome para a aula.'
     }
-    if (!categoryId) {
-      nextErrors.category = 'Selecione uma matéria.'
+    if (!subjectId) {
+      nextErrors.subject = 'Selecione uma matéria.'
     }
 
     setTitleError(nextErrors.title)
-    setCategoryError(nextErrors.category)
-    if (nextErrors.title || nextErrors.category) return
+    setSubjectError(nextErrors.subject)
+    if (nextErrors.title || nextErrors.subject) return
 
     setIsSubmitting(true)
     try {
-      const lecture = await startLecture({ title: trimmedTitle, category_id: categoryId })
+      const lecture = await startLecture({ title: trimmedTitle, subject_id: subjectId })
       navigateTo(`/lectures/${lecture.id}/record`)
     } catch (error) {
       if (error instanceof ApiError && error.kind === 'validation') {
@@ -122,36 +122,36 @@ export function NovaAulaModal({ onClose }: NovaAulaModalProps) {
               >
                 Matéria
               </span>
-              {isLoadingCategories ? (
+              {isLoadingSubjects ? (
                 <p style={{ fontSize: 13, color: 'var(--ink-4)' }}>Buscando matérias...</p>
-              ) : categories.length === 0 ? (
+              ) : subjects.length === 0 ? (
                 <p style={{ fontSize: 13, color: 'var(--ink-4)' }}>
                   Nenhuma matéria cadastrada. Crie uma em <strong>Matérias</strong> antes de iniciar.
                 </p>
               ) : (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {categories.map((category) => {
-                    const selected = category.id === categoryId
+                  {subjects.map((subject) => {
+                    const selected = subject.id === subjectId
                     return (
                       <button
                         className={selected ? 'tab active' : 'tab'}
-                        key={category.id}
+                        key={subject.id}
                         onClick={() => {
-                          setCategoryId(category.id)
-                          setCategoryError(undefined)
+                          setSubjectId(subject.id)
+                          setSubjectError(undefined)
                         }}
                         style={{ flexShrink: 0 }}
                         type="button"
                       >
-                        {category.name}
+                        {subject.name}
                       </button>
                     )
                   })}
                 </div>
               )}
-              {categoryError ? (
+              {subjectError ? (
                 <span style={{ display: 'block', marginTop: 6, fontSize: 12, color: 'var(--danger)' }}>
-                  {categoryError}
+                  {subjectError}
                 </span>
               ) : null}
             </div>
@@ -170,7 +170,7 @@ export function NovaAulaModal({ onClose }: NovaAulaModalProps) {
               </button>
               <button
                 className="btn btn-primary"
-                disabled={isSubmitting || isLoadingCategories || categories.length === 0}
+                disabled={isSubmitting || isLoadingSubjects || subjects.length === 0}
                 type="submit"
               >
                 <Icon name="video" size={14} />

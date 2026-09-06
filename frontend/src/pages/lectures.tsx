@@ -209,7 +209,7 @@ export function LecturesPage() {
                     <div className="prova-sub">
                       <span>
                         <Icon name="tag" size={11} />
-                        {lecture.category?.name ?? 'Sem matéria'}
+                        {lecture.subject?.name ?? 'Sem matéria'}
                       </span>
                       <span>
                         <Icon name="clock" size={11} />

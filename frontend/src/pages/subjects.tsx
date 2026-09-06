@@ -1,32 +1,25 @@
 import { useEffect, useState, type FormEvent } from 'react'
 
 import { AppShell } from '../components/layout/app-shell'
+import { NovaMateriaModal } from '../components/subjects/NovaMateriaModal'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { EmptyState } from '../components/ui/empty-state'
 import { Icon } from '../components/ui/icon'
 import { Input } from '../components/ui/input'
 import { getAccessToken } from '../lib/auth'
-import {
-  ApiError,
-  createCategory,
-  deleteCategory,
-  listCategories,
-  updateCategory,
-} from '../lib/api'
+import { ApiError, deleteSubject, listSubjects, updateSubject } from '../lib/api'
 import { navigateTo } from '../lib/navigation'
-import type { Category } from '../types/lecture'
+import type { Subject } from '../types/lecture'
 
-export function CategoriesPage() {
-  const [categories, setCategories] = useState<Category[]>([])
+export function SubjectsPage() {
+  const [subjects, setSubjects] = useState<Subject[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [newName, setNewName] = useState('')
-  const [createError, setCreateError] = useState<string | undefined>()
-  const [isCreating, setIsCreating] = useState(false)
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editError, setEditError] = useState<string | undefined>()
   const [isSaving, setIsSaving] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState<Category | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<Subject | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
@@ -35,46 +28,24 @@ export function CategoriesPage() {
       return
     }
 
-    void loadCategories()
+    void loadSubjects()
   }, [])
 
-  async function loadCategories() {
+  async function loadSubjects() {
     setIsLoading(true)
     try {
-      const data = await listCategories()
-      setCategories(data)
+      const data = await listSubjects()
+      setSubjects(data)
     } catch {
-      setCategories([])
+      setSubjects([])
     } finally {
       setIsLoading(false)
     }
   }
 
-  async function handleCreate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const trimmed = newName.trim()
-    if (!trimmed) {
-      setCreateError('Informe o nome da matéria.')
-      return
-    }
-    setIsCreating(true)
-    setCreateError(undefined)
-    try {
-      await createCategory(trimmed)
-      setNewName('')
-      await loadCategories()
-    } catch (error) {
-      if (error instanceof ApiError && error.kind === 'validation') {
-        setCreateError(error.message)
-      }
-    } finally {
-      setIsCreating(false)
-    }
-  }
-
-  function startEdit(category: Category) {
-    setEditingId(category.id)
-    setEditName(category.name)
+  function startEdit(subject: Subject) {
+    setEditingId(subject.id)
+    setEditName(subject.name)
     setEditError(undefined)
   }
 
@@ -95,9 +66,9 @@ export function CategoriesPage() {
     setIsSaving(true)
     setEditError(undefined)
     try {
-      await updateCategory(editingId, trimmed)
+      await updateSubject(editingId, trimmed)
       cancelEdit()
-      await loadCategories()
+      await loadSubjects()
     } catch (error) {
       if (error instanceof ApiError && error.kind === 'validation') {
         setEditError(error.message)
@@ -111,9 +82,9 @@ export function CategoriesPage() {
     if (!confirmDelete) return
     setIsDeleting(true)
     try {
-      await deleteCategory(confirmDelete.id)
+      await deleteSubject(confirmDelete.id)
       setConfirmDelete(null)
-      await loadCategories()
+      await loadSubjects()
     } catch {
       return
     } finally {
@@ -123,46 +94,23 @@ export function CategoriesPage() {
 
   return (
     <AppShell
-      activeItem="categories"
-      description="Cadastre as matérias que organizarão suas aulas e provas."
+      actions={
+        <button className="btn btn-primary" onClick={() => setIsCreateOpen(true)} type="button">
+          <Icon name="plus" size={14} />
+          <span>Nova matéria</span>
+        </button>
+      }
+      activeItem="subjects"
+      description="Cadastre as matérias que organizarão suas aulas e anexe a bibliografia de cada uma."
       title="Matérias"
     >
-      <Card style={{ marginBottom: 20 }}>
-        <CardHeader>
-          <CardTitle>Nova matéria</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleCreate} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-            <div style={{ flex: 1 }}>
-              <Input
-                error={createError}
-                onChange={(event) => {
-                  setNewName(event.target.value)
-                  setCreateError(undefined)
-                }}
-                placeholder="Ex.: Cálculo Diferencial"
-                value={newName}
-              />
-            </div>
-            <button
-              className="btn btn-primary"
-              disabled={isCreating || !newName.trim()}
-              type="submit"
-              style={{ marginTop: 26 }}
-            >
-              <Icon name="plus" size={14} />
-              <span>{isCreating ? 'Salvando...' : 'Adicionar'}</span>
-            </button>
-          </form>
-        </CardContent>
-      </Card>
 
       <section aria-label="Lista de matérias">
         {isLoading ? (
           <EmptyState description="Buscando matérias cadastradas." title="Carregando..." />
-        ) : categories.length === 0 ? (
+        ) : subjects.length === 0 ? (
           <EmptyState
-            description="Cadastre a primeira matéria usando o formulário acima."
+            description="Use o botão Nova matéria para cadastrar a primeira."
             title="Nenhuma matéria cadastrada."
           />
         ) : (
@@ -176,17 +124,17 @@ export function CategoriesPage() {
               overflow: 'hidden',
             }}
           >
-            {categories.map((category, index) => {
-              const isEditing = editingId === category.id
+            {subjects.map((subject, index) => {
+              const isEditing = editingId === subject.id
               return (
                 <div
-                  key={category.id}
+                  key={subject.id}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: 14,
                     padding: '14px 20px',
-                    borderBottom: index === categories.length - 1 ? 'none' : '1px solid var(--line)',
+                    borderBottom: index === subjects.length - 1 ? 'none' : '1px solid var(--line)',
                   }}
                 >
                   <div
@@ -241,25 +189,25 @@ export function CategoriesPage() {
                           color: 'var(--ink)',
                         }}
                       >
-                        {category.name}
+                        {subject.name}
                       </div>
                     )}
                   </div>
                   {!isEditing && (
                     <div className="row-actions" style={{ flexShrink: 0 }}>
                       <button
-                        aria-label={`Editar ${category.name}`}
+                        aria-label={`Editar ${subject.name}`}
                         className="icon-btn"
-                        onClick={() => startEdit(category)}
+                        onClick={() => startEdit(subject)}
                         title="Editar"
                         type="button"
                       >
                         <Icon name="settings" size={14} />
                       </button>
                       <button
-                        aria-label={`Excluir ${category.name}`}
+                        aria-label={`Excluir ${subject.name}`}
                         className="icon-btn danger"
-                        onClick={() => setConfirmDelete(category)}
+                        onClick={() => setConfirmDelete(subject)}
                         title="Excluir"
                         type="button"
                       >
@@ -307,6 +255,16 @@ export function CategoriesPage() {
             </CardContent>
           </Card>
         </div>
+      ) : null}
+
+      {isCreateOpen ? (
+        <NovaMateriaModal
+          onClose={() => setIsCreateOpen(false)}
+          onCreated={() => {
+            setIsCreateOpen(false)
+            void loadSubjects()
+          }}
+        />
       ) : null}
     </AppShell>
   )

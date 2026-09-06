@@ -273,7 +273,7 @@ export function LectureRecordPage() {
                   </h2>
                   <div style={{ fontSize: 12.5, color: 'var(--ink-4)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                     <Icon name="tag" size={12} />
-                    {lecture.category?.name ?? 'Sem matéria'}
+                    {lecture.subject?.name ?? 'Sem matéria'}
                   </div>
                 </div>
                 <span className={stage === 'paused' ? 'pill pill-warn' : 'pill pill-danger'}>

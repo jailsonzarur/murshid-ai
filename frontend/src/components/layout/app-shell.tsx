@@ -8,7 +8,7 @@ import { Topbar } from '../ui/topbar'
 
 export type AppShellActiveItem =
   | 'analytics'
-  | 'categories'
+  | 'subjects'
   | 'dashboard'
   | 'exams'
   | 'lectures'

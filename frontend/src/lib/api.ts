@@ -11,7 +11,9 @@ import type {
 } from '../types/exam'
 import type { OrderedExamUploadFile } from '../types/exam-upload'
 import type {
-  Category,
+  Subject,
+  SubjectDetail,
+  SubjectDocument,
   LectureDetail,
   LectureSummary,
   ProcessSegmentResponse,
@@ -504,37 +506,67 @@ function requireAuth() {
   return authorization
 }
 
-export async function listCategories() {
+export async function listSubjects() {
   const authorization = requireAuth()
 
-  const response = await fetchApi(`${API_BASE_URL}/categories`, {
+  const response = await fetchApi(`${API_BASE_URL}/subjects`, {
     headers: {
       Authorization: authorization,
     },
   })
 
-  return parseApiResponse<Category[]>(response)
+  return parseApiResponse<Subject[]>(response)
 }
 
-export async function createCategory(name: string) {
+export async function createSubject(name: string, documents: File[] = []) {
   const authorization = requireAuth()
 
-  const response = await fetchApi(`${API_BASE_URL}/categories`, {
+  const formData = new FormData()
+  formData.append('name', name)
+  for (const document of documents) {
+    formData.append('documents', document)
+  }
+
+  const response = await fetchApi(`${API_BASE_URL}/subjects`, {
     method: 'POST',
     headers: {
       Authorization: authorization,
-      'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ name }),
+    body: formData,
   })
 
-  return parseApiResponse<Category>(response)
+  return parseApiResponse<SubjectDetail>(response)
 }
 
-export async function updateCategory(categoryId: string, name: string) {
+export async function listSubjectDocuments(subjectId: string) {
   const authorization = requireAuth()
 
-  const response = await fetchApi(`${API_BASE_URL}/categories/${categoryId}`, {
+  const response = await fetchApi(`${API_BASE_URL}/subjects/${subjectId}/documents`, {
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  return parseApiResponse<SubjectDocument[]>(response)
+}
+
+export async function deleteSubjectDocument(documentId: string) {
+  const authorization = requireAuth()
+
+  const response = await fetchApi(`${API_BASE_URL}/subjects/documents/${documentId}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  return parseApiResponse<{ document_id: string; message: string }>(response)
+}
+
+export async function updateSubject(subjectId: string, name: string) {
+  const authorization = requireAuth()
+
+  const response = await fetchApi(`${API_BASE_URL}/subjects/${subjectId}`, {
     method: 'PATCH',
     headers: {
       Authorization: authorization,
@@ -543,25 +575,25 @@ export async function updateCategory(categoryId: string, name: string) {
     body: JSON.stringify({ name }),
   })
 
-  return parseApiResponse<Category>(response)
+  return parseApiResponse<Subject>(response)
 }
 
-export type DeleteCategoryResponseData = {
-  category_id: string
+export type DeleteSubjectResponseData = {
+  subject_id: string
   message: string
 }
 
-export async function deleteCategory(categoryId: string) {
+export async function deleteSubject(subjectId: string) {
   const authorization = requireAuth()
 
-  const response = await fetchApi(`${API_BASE_URL}/categories/${categoryId}`, {
+  const response = await fetchApi(`${API_BASE_URL}/subjects/${subjectId}`, {
     method: 'DELETE',
     headers: {
       Authorization: authorization,
     },
   })
 
-  return parseApiResponse<DeleteCategoryResponseData>(response)
+  return parseApiResponse<DeleteSubjectResponseData>(response)
 }
 
 export async function listLectures() {
@@ -671,14 +703,14 @@ export type ImportAudioItem = {
 
 export async function importLecture(
   title: string,
-  categoryId: string | null,
+  subjectId: string | null,
   audios: ImportAudioItem[],
 ) {
   const authorization = requireAuth()
 
   const formData = new FormData()
   if (title.trim()) formData.append('title', title.trim())
-  if (categoryId) formData.append('category_id', categoryId)
+  if (subjectId) formData.append('subject_id', subjectId)
   formData.append('durations', JSON.stringify(audios.map((item) => item.duration)))
   audios.forEach((item) => {
     formData.append('files', item.file, item.file.name)

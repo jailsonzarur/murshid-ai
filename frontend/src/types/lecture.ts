@@ -1,8 +1,26 @@
 export type LectureStatus = 'ACTIVE' | 'PAUSED' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
 
-export type Category = {
+export type Subject = {
   id: string
   name: string
+}
+
+export type SubjectDocumentStatus = 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED'
+
+export type SubjectDocument = {
+  id: string
+  subject_id: string
+  title: string
+  original_name: string
+  mime_type: string
+  size_bytes: number
+  page_count: number | null
+  status: SubjectDocumentStatus
+  created_at: string
+}
+
+export type SubjectDetail = Subject & {
+  documents: SubjectDocument[]
 }
 
 export type LectureNode = {
@@ -24,7 +42,7 @@ export type LectureSegment = {
 export type LectureSummary = {
   id: string
   user_id: string
-  category: Category | null
+  subject: Subject | null
   title: string | null
   status: LectureStatus
   duration_seconds: number
@@ -36,7 +54,7 @@ export type LectureSummary = {
 export type LectureDetail = {
   id: string
   user_id: string
-  category: Category | null
+  subject: Subject | null
   title: string | null
   status: LectureStatus
   duration_seconds: number
@@ -54,5 +72,5 @@ export type ProcessSegmentResponse = {
 
 export type StartLecturePayload = {
   title?: string | null
-  category_id?: string | null
+  subject_id?: string | null
 }

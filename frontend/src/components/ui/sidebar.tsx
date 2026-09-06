@@ -5,7 +5,7 @@ import { Icon, type IconName } from './icon'
 
 export type AppSidebarActiveItem =
   | 'analytics'
-  | 'categories'
+  | 'subjects'
   | 'dashboard'
   | 'exams'
   | 'lectures'
@@ -62,7 +62,7 @@ type NavItemDef = {
 const menuItems: NavItemDef[] = [
   { id: 'dashboard', label: 'Painel', icon: 'home', path: '/dashboard' },
   { id: 'lectures', label: 'Transcrições', icon: 'clipboard', path: '/lectures' },
-  { id: 'categories', label: 'Matérias', icon: 'tag', path: '/categories' },
+  { id: 'subjects', label: 'Matérias', icon: 'tag', path: '/subjects' },
 ]
 
 const generalItems: NavItemDef[] = [
