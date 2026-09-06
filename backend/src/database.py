@@ -25,8 +25,8 @@ AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_co
 
 
 def import_models() -> None:
-    from src.features.categories.models import CategoryModel  # noqa: F401
     from src.features.lectures.models import LectureModel, LectureSegmentModel  # noqa: F401
+    from src.features.subjects.models import SubjectDocumentModel, SubjectModel  # noqa: F401
     from src.features.users.models import UserModel  # noqa: F401
 
 

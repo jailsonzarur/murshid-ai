@@ -13,7 +13,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.database import Base
 
 if TYPE_CHECKING:
-    from src.features.categories.models import CategoryModel
+    from src.features.subjects.models import SubjectModel
 
 
 class LectureStatus(enum.StrEnum):
@@ -50,8 +50,8 @@ class LectureModel(Base):
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
     user_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    category_id: Mapped[UUID | None] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("categories.id"), nullable=True
+    subject_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("subjects.id"), nullable=True
     )
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[LectureStatus] = mapped_column(
@@ -67,7 +67,7 @@ class LectureModel(Base):
         DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now
     )
 
-    category: Mapped[CategoryModel | None] = relationship("CategoryModel", lazy="selectin")
+    subject: Mapped[SubjectModel | None] = relationship("SubjectModel", lazy="selectin")
     segments: Mapped[list[LectureSegmentModel]] = relationship(
         back_populates="lecture",
         cascade="all, delete-orphan",

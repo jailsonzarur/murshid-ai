@@ -11,7 +11,6 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import AsyncSessionLocal
-from src.features.categories.repository import get_category_by_id
 from src.features.files.services.bucket_service import get_bucket_service
 from src.features.lectures.ai.final_summary_agent import build_final_summary
 from src.features.lectures.ai.live_insight_agent import generate_live_insight
@@ -34,6 +33,7 @@ from src.features.lectures.schemas.lecture_schemas import (
     ProcessSegmentResponseSchema,
     StartLectureSchema,
 )
+from src.features.subjects.repository import get_subject_by_id
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ def _build_summary(lecture: LectureModel) -> LectureSummarySchema:
         {
             "id": lecture.id,
             "user_id": lecture.user_id,
-            "category": lecture.category,
+            "subject": lecture.subject,
             "title": lecture.title,
             "status": lecture.status,
             "duration_seconds": lecture.duration_seconds,
@@ -70,7 +70,7 @@ def _build_detail(lecture: LectureModel) -> LectureDetailSchema:
     return LectureDetailSchema(
         id=lecture.id,
         user_id=lecture.user_id,
-        category=lecture.category,  # type: ignore[arg-type]
+        subject=lecture.subject,  # type: ignore[arg-type]
         title=lecture.title,
         status=lecture.status,
         duration_seconds=lecture.duration_seconds,
@@ -96,9 +96,9 @@ async def start_lecture(
     user_id: UUID,
     payload: StartLectureSchema,
 ) -> LectureSummarySchema:
-    if payload.category_id is not None:
-        category = await get_category_by_id(db, payload.category_id)
-        if category is None:
+    if payload.subject_id is not None:
+        subject = await get_subject_by_id(db, payload.subject_id, user_id)
+        if subject is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={"success": False, "errors": ["Matéria não encontrada."], "data": None},
@@ -107,11 +107,11 @@ async def start_lecture(
     lecture = LectureModel(
         user_id=user_id,
         title=payload.title,
-        category_id=payload.category_id,
+        subject_id=payload.subject_id,
     )
     await create_lecture(db, lecture)
     await db.commit()
-    await db.refresh(lecture, ["category"])
+    await db.refresh(lecture, ["subject"])
     return _build_summary(lecture)
 
 
@@ -292,7 +292,7 @@ async def start_import_lecture(
     *,
     user_id: UUID,
     title: str | None,
-    category_id: UUID | None,
+    subject_id: UUID | None,
     audio_items: list[ImportAudioItem],
 ) -> LectureSummarySchema:
     """Cria uma lecture em PROCESSING, sobe os áudios pro MinIO e dispara a Celery task."""
@@ -302,9 +302,9 @@ async def start_import_lecture(
             detail={"success": False, "errors": ["Envie pelo menos um arquivo de áudio."], "data": None},
         )
 
-    if category_id is not None:
-        category = await get_category_by_id(db, category_id)
-        if category is None:
+    if subject_id is not None:
+        subject = await get_subject_by_id(db, subject_id, user_id)
+        if subject is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={"success": False, "errors": ["Matéria não encontrada."], "data": None},
@@ -313,12 +313,12 @@ async def start_import_lecture(
     lecture = LectureModel(
         user_id=user_id,
         title=title,
-        category_id=category_id,
+        subject_id=subject_id,
         status=LectureStatus.PROCESSING,
     )
     await create_lecture(db, lecture)
     await db.commit()
-    await db.refresh(lecture, ["category"])
+    await db.refresh(lecture, ["subject"])
 
     bucket = get_bucket_service()
     task_items: list[dict] = []
@@ -387,7 +387,7 @@ async def generate_final_summary(lecture_id: UUID) -> None:
 
         full_transcript = "\n\n".join(s.transcript for s in segments_sorted)
         lecture_title = lecture.title
-        subject_name = lecture.category.name if lecture.category else None
+        subject_name = lecture.subject.name if lecture.subject else None
 
     summary_result, tree_result = await asyncio.gather(
         build_final_summary(

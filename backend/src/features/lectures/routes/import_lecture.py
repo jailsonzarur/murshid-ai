@@ -111,7 +111,7 @@ async def import_lecture_route(
     current_user: Annotated[CurrentUser, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
     title: Annotated[str | None, Form()] = None,
-    category_id: Annotated[UUID | None, Form()] = None,
+    subject_id: Annotated[UUID | None, Form()] = None,
 ):
     if not files:
         raise _validation_error("Envie pelo menos um arquivo de áudio.")
@@ -137,7 +137,7 @@ async def import_lecture_route(
         db,
         user_id=current_user.id,
         title=title.strip() if title else None,
-        category_id=category_id,
+        subject_id=subject_id,
         audio_items=audio_items,
     )
     return SuccessResponse(success=True, errors=None, data=lecture)

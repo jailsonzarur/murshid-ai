@@ -6,24 +6,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
 from src.features.auth.utils import CurrentUser, get_current_user
-from src.features.categories.schemas.category_schemas import CategorySchema, UpdateCategorySchema
-from src.features.categories.services.category_service import update_category
+from src.features.subjects.schemas.subject_schemas import SubjectSchema, UpdateSubjectSchema
+from src.features.subjects.services.subject_service import update_subject
 from src.shared.schemas.http import ErrorResponse, SuccessResponse
 
 router = APIRouter()
 
 
 @router.patch(
-    "/{category_id}",
-    operation_id="updateCategory",
-    response_model=SuccessResponse[CategorySchema],
+    "/{subject_id}",
+    operation_id="updateSubject",
+    response_model=SuccessResponse[SubjectSchema],
     responses={400: {"model": ErrorResponse}, 404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
 )
-async def update_category_route(
-    category_id: UUID,
-    payload: UpdateCategorySchema,
+async def update_subject_route(
+    subject_id: UUID,
+    payload: UpdateSubjectSchema,
     current_user: Annotated[CurrentUser, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    category = await update_category(db, category_id=category_id, payload=payload)
-    return SuccessResponse(success=True, errors=None, data=category)
+    subject = await update_subject(db, subject_id=subject_id, user_id=current_user.id, payload=payload)
+    return SuccessResponse(success=True, errors=None, data=subject)

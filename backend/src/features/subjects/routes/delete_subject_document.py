@@ -6,27 +6,29 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
 from src.features.auth.utils import CurrentUser, get_current_user
-from src.features.categories.schemas.category_schemas import DeleteCategoryResponse
-from src.features.categories.services.category_service import remove_category
+from src.features.subjects.schemas.subject_schemas import DeleteSubjectDocumentResponse
+from src.features.subjects.services.subject_document_service import remove_document
 from src.shared.schemas.http import ErrorResponse, SuccessResponse
 
 router = APIRouter()
 
 
 @router.delete(
-    "/{category_id}",
-    operation_id="deleteCategory",
-    response_model=SuccessResponse[DeleteCategoryResponse],
+    "/documents/{document_id}",
+    operation_id="deleteSubjectDocument",
+    response_model=SuccessResponse[DeleteSubjectDocumentResponse],
     responses={404: {"model": ErrorResponse}},
 )
-async def delete_category_route(
-    category_id: UUID,
+async def delete_subject_document_route(
+    document_id: UUID,
     current_user: Annotated[CurrentUser, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    await remove_category(db, category_id)
+    await remove_document(db, document_id, current_user.id)
     return SuccessResponse(
         success=True,
         errors=None,
-        data=DeleteCategoryResponse(category_id=category_id, message="Matéria excluída com sucesso."),
+        data=DeleteSubjectDocumentResponse(
+            document_id=document_id, message="Documento excluído com sucesso."
+        ),
     )

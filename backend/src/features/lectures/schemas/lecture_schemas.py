@@ -5,13 +5,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
-from src.features.categories.schemas.category_schemas import CategorySchema
 from src.features.lectures.models import LectureStatus
+from src.features.subjects.schemas.subject_schemas import SubjectSchema
 
 
 class StartLectureSchema(BaseModel):
     title: str | None = None
-    category_id: UUID | None = None
+    subject_id: UUID | None = None
 
 
 class LectureNodeSchema(BaseModel):
@@ -40,7 +40,7 @@ class ProcessSegmentResponseSchema(BaseModel):
 class LectureSummarySchema(BaseModel):
     id: UUID
     user_id: UUID
-    category: CategorySchema | None = None
+    subject: SubjectSchema | None = None
     title: str | None = None
     status: LectureStatus
     duration_seconds: float
@@ -54,7 +54,7 @@ class LectureSummarySchema(BaseModel):
 class LectureDetailSchema(BaseModel):
     id: UUID
     user_id: UUID
-    category: CategorySchema | None = None
+    subject: SubjectSchema | None = None
     title: str | None = None
     status: LectureStatus
     duration_seconds: float
