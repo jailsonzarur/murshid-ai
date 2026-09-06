@@ -62,6 +62,7 @@ type NavItemDef = {
 const menuItems: NavItemDef[] = [
   { id: 'dashboard', label: 'Painel', icon: 'home', path: '/dashboard' },
   { id: 'lectures', label: 'Transcrições', icon: 'clipboard', path: '/lectures' },
+  { id: 'categories', label: 'Matérias', icon: 'tag', path: '/categories' },
 ]
 
 const generalItems: NavItemDef[] = [
