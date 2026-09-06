@@ -14,11 +14,6 @@ services:
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
-      EXAM_LAYOUT_DEBUG_DIR: /app/tmp/exam-layout-debug
-      EXAM_OCR_LANGUAGES: por,eng
-      EXAM_LAYOUT_MODEL: gemini-2.5-flash
-      EXAM_VISION_DEBUG_DIR: /tmp/exam-vision-debug
-      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
       DEV_RELOAD: "1"
       MINIO_PUBLIC_ENDPOINT: http://minio:9000
       BUCKET_PUBLIC_BASE_URL: http://localhost:9000
@@ -33,7 +28,6 @@ services:
       - ./alembic.ini:/app/alembic.ini:ro
       - ./entrypoint.sh:/app/entrypoint.sh:ro
       - ./tmp:/app/tmp
-      - ./tmp/exam-vision-debug:/tmp/exam-vision-debug
     command: ["sh", "/app/entrypoint.sh"]
     depends_on:
       postgres:
@@ -55,11 +49,6 @@ services:
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
-      EXAM_LAYOUT_DEBUG_DIR: /app/tmp/exam-layout-debug
-      EXAM_OCR_LANGUAGES: por,eng
-      EXAM_LAYOUT_MODEL: gemini-2.5-flash
-      EXAM_VISION_DEBUG_DIR: /tmp/exam-vision-debug
-      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
       DEV_RELOAD: "1"
       MINIO_PUBLIC_ENDPOINT: http://minio:9000
       BUCKET_PUBLIC_BASE_URL: http://localhost:9000
@@ -70,7 +59,6 @@ services:
       - ./src:/app/src
       - ./worker-entrypoint.sh:/app/worker-entrypoint.sh:ro
       - ./tmp:/app/tmp
-      - ./tmp/exam-vision-debug:/tmp/exam-vision-debug
     command: ["sh", "/app/worker-entrypoint.sh"]
     depends_on:
       api:

@@ -12,9 +12,7 @@ from src.database import close_db, get_db, init_db
 from src.features.auth import router as auth_router
 from src.features.auth.middleware import PermissionMiddleware
 from src.features.categories import router as categories_router
-from src.features.exams import router as exams_router
 from src.features.lectures import router as lectures_router
-from src.features.resolutions import router as resolutions_router
 from src.features.users import router as users_router
 from src.shared.utils.error_handler import http_exception_handler, validation_exception_handler
 
@@ -59,6 +57,4 @@ async def health(db: AsyncSession = Depends(get_db)):
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(categories_router)
-app.include_router(exams_router)
-app.include_router(resolutions_router)
 app.include_router(lectures_router)

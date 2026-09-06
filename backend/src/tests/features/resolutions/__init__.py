@@ -1,1 +1,0 @@
-"""Resolution feature tests."""
