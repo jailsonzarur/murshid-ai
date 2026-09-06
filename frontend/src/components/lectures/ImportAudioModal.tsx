@@ -234,7 +234,7 @@ export function ImportAudioModal({ onClose }: ImportAudioModalProps) {
           </button>
         </div>
 
-        <CardContent style={{ overflowY: 'auto', flex: 1, padding: '8px 22px 0' }}>
+        <CardContent style={{ overflowY: 'auto', flex: 1, padding: '8px 22px 18px' }}>
           <form onSubmit={handleSubmit} id="import-audio-form" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <Input
               autoFocus
