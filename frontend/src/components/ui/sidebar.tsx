@@ -61,17 +61,7 @@ type NavItemDef = {
 
 const menuItems: NavItemDef[] = [
   { id: 'dashboard', label: 'Painel', icon: 'home', path: '/dashboard' },
-  { id: 'flashcards', label: 'Flashcards', icon: 'bookOpen', count: '2.1k', disabled: true },
   { id: 'lectures', label: 'Transcrições', icon: 'clipboard', path: '/lectures' },
-  { id: 'categories', label: 'Matérias', icon: 'tag', path: '/categories' },
-  { id: 'calendario', label: 'Calendário', icon: 'calendar', disabled: true },
-  { id: 'analytics', label: 'Análises', icon: 'chart', chev: true, disabled: true },
-]
-
-const workflowItems: NavItemDef[] = [
-  { id: 'importar', label: 'Importar material', icon: 'upload', disabled: true },
-  { id: 'anotacoes', label: 'Anotações', icon: 'fileText', disabled: true },
-  { id: 'equipe', label: 'Grupos de estudo', icon: 'users', disabled: true },
 ]
 
 const generalItems: NavItemDef[] = [
@@ -150,11 +140,6 @@ export function Sidebar({
         <div className="nav-section">
           <div className="nav-section-label">Menu Principal</div>
           {menuItems.map((item) => <NavItem key={item.id} item={item} />)}
-        </div>
-
-        <div className="nav-section">
-          <div className="nav-section-label">Workflow</div>
-          {workflowItems.map((item) => <NavItem key={item.id} item={item} />)}
         </div>
       </div>
 
