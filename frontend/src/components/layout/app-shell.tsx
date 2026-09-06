@@ -69,7 +69,6 @@ export function AppShell({
 
       <main className="main">
         <Topbar
-          onGenerateExam={() => handleNavigate('/exams')}
           onLogout={handleLogout}
           searchPlaceholder={searchPlaceholder}
           userEmail={resolvedUserEmail}

@@ -159,7 +159,7 @@ function RemindersCard() {
           </div>
           <button
             className="btn btn-primary btn-sm"
-            onClick={() => navigateTo('/exams')}
+            onClick={() => navigateTo('/lectures')}
             style={{ alignSelf: 'flex-start' }}
             type="button"
           >
@@ -368,25 +368,17 @@ export function DashboardPage() {
               Seus estudos estão <em>fluindo</em>.
             </h1>
             <p className="hero-sub">
-              Acompanhe todos os módulos — provas, flashcards, transcrições e anotações.
+              Acompanhe todos os módulos — transcrições, flashcards e anotações.
               Você tem 2 itens em análise e uma sessão de revisão marcada para esta tarde.
             </p>
             <div className="hero-actions">
               <button
-                className="btn btn-glass"
-                onClick={() => navigateTo('/exams')}
+                className="btn btn-light"
+                onClick={() => navigateTo('/lectures')}
                 type="button"
               >
                 <Icon name="upload" size={14} />
-                <span>Importar material</span>
-              </button>
-              <button
-                className="btn btn-light"
-                onClick={() => navigateTo('/exams')}
-                type="button"
-              >
-                <Icon name="plus" size={14} />
-                <span>Gerar prova</span>
+                <span>Importar aula</span>
               </button>
             </div>
           </div>

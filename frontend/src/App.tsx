@@ -6,24 +6,20 @@ import { clearAuthSession, getAccessToken, isTokenExpired } from './lib/auth'
 import { NAVIGATION_EVENT, navigateTo } from './lib/navigation'
 import { CategoriesPage } from './pages/categories'
 import { DashboardPage } from './pages/dashboard'
-import { ExamViewerPage } from './pages/exam-viewer'
-import { ExamsPage } from './pages/exams'
 import { LectureRecordPage } from './pages/lecture-record'
 import { LecturesPage } from './pages/lectures'
 import { LectureViewerPage } from './pages/lecture-viewer'
 import { LoginPage } from './pages/login'
-import { ResolutionViewerPage } from './pages/resolution-viewer'
 
 const routes = {
   '/': LoginPage,
   '/login': LoginPage,
   '/dashboard': DashboardPage,
-  '/exams': ExamsPage,
   '/lectures': LecturesPage,
   '/categories': CategoriesPage,
 }
 
-const protectedRoutes = new Set(['/dashboard', '/exams', '/lectures', '/categories'])
+const protectedRoutes = new Set(['/dashboard', '/lectures', '/categories'])
 
 function normalizePathname(pathname: string) {
   if (pathname.length > 1 && pathname.endsWith('/')) {
@@ -37,8 +33,6 @@ function isProtectedPath(pathname: string) {
   const normalizedPathname = normalizePathname(pathname)
   return (
     protectedRoutes.has(normalizedPathname) ||
-    /^\/exams\/[^/]+$/.test(normalizedPathname) ||
-    /^\/resolutions\/[^/]+$/.test(normalizedPathname) ||
     /^\/lectures\/[^/]+(\/record)?$/.test(normalizedPathname)
   )
 }
@@ -89,15 +83,11 @@ function App() {
   }, [])
 
   const normalizedPathname = normalizePathname(pathname)
-  const Page = /^\/resolutions\/[^/]+$/.test(normalizedPathname)
-    ? ResolutionViewerPage
-    : /^\/exams\/[^/]+$/.test(normalizedPathname)
-      ? ExamViewerPage
-      : /^\/lectures\/[^/]+\/record$/.test(normalizedPathname)
-        ? LectureRecordPage
-        : /^\/lectures\/[^/]+$/.test(normalizedPathname)
-          ? LectureViewerPage
-          : routes[pathname as keyof typeof routes] ?? LoginPage
+  const Page = /^\/lectures\/[^/]+\/record$/.test(normalizedPathname)
+    ? LectureRecordPage
+    : /^\/lectures\/[^/]+$/.test(normalizedPathname)
+      ? LectureViewerPage
+      : routes[pathname as keyof typeof routes] ?? LoginPage
 
   return (
     <>

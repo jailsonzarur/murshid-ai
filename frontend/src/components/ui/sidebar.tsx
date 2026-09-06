@@ -61,7 +61,6 @@ type NavItemDef = {
 
 const menuItems: NavItemDef[] = [
   { id: 'dashboard', label: 'Painel', icon: 'home', path: '/dashboard' },
-  { id: 'exams', label: 'Provas', icon: 'layers', count: '124', path: '/exams' },
   { id: 'flashcards', label: 'Flashcards', icon: 'bookOpen', count: '2.1k', disabled: true },
   { id: 'lectures', label: 'Transcrições', icon: 'clipboard', path: '/lectures' },
   { id: 'categories', label: 'Matérias', icon: 'tag', path: '/categories' },
@@ -70,8 +69,7 @@ const menuItems: NavItemDef[] = [
 ]
 
 const workflowItems: NavItemDef[] = [
-  { id: 'gerar', label: 'Gerar prova', icon: 'zap', path: '/exams' },
-  { id: 'importar', label: 'Importar material', icon: 'upload', path: '/exams' },
+  { id: 'importar', label: 'Importar material', icon: 'upload', disabled: true },
   { id: 'anotacoes', label: 'Anotações', icon: 'fileText', disabled: true },
   { id: 'equipe', label: 'Grupos de estudo', icon: 'users', disabled: true },
 ]
