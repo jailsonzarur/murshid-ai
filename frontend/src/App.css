@@ -3800,3 +3800,287 @@ a { color: inherit; text-decoration: none; }
     color: #7a8492;
   }
 }
+
+/* ============================================
+   Subjects — expandable card grid
+   ============================================ */
+
+.subject-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.subject-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.subject-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow-sm); }
+
+.subject-card__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.subject-card__title {
+  flex: 1;
+  min-width: 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subject-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.subject-card__count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--bg-sunken);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+
+.subject-card__panel-inner { padding: 0 18px 16px; border-top: 1px solid var(--line); padding-top: 14px; }
+
+.subject-card__section-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  margin-bottom: 8px;
+}
+
+.subject-card__hint { margin: 0; font-size: 12.5px; color: var(--ink-4); line-height: 1.5; }
+.subject-card__error { margin: 8px 0 0; font-size: 12px; color: var(--danger); }
+
+.subject-card__docs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+
+.subject-card__doc {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card-alt);
+}
+
+.subject-card__doc-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--accent-softer);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.subject-card__doc-info { min-width: 0; flex: 1; display: grid; }
+
+.subject-card__doc-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subject-card__doc-size { font-size: 11px; color: var(--ink-4); }
+
+.subject-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.subject-card__actions .btn-ghost.danger { color: var(--danger); }
+.subject-card__actions .btn-ghost.danger:hover { background: var(--danger-soft); }
+
+/* ============================================
+   Expandable screen — morph de botão para tela
+   ============================================ */
+
+.screen-trigger { position: relative; display: inline-flex; }
+
+.screen-trigger__bg {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+}
+
+.screen-trigger__content { position: relative; display: inline-flex; }
+
+.screen-layer { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 24px; }
+.screen-scrim { position: absolute; inset: 0; background: oklch(20% 0.02 270 / 0.42); }
+
+.screen-panel {
+  position: relative;
+  width: min(1080px, 100%);
+  height: min(720px, calc(100svh - 48px));
+  border-radius: 20px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.screen-panel__inner { display: flex; flex-direction: column; height: 100%; }
+
+.screen-panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 24px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--card);
+}
+
+.screen-panel__title { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -0.015em; }
+.screen-panel__sub { margin: 4px 0 0; font-size: 12.5px; color: var(--ink-4); }
+.screen-panel__body { flex: 1; overflow-y: auto; padding: 22px 24px 26px; }
+
+/* ============================================
+   Document cards — estilo cutout
+   ============================================ */
+
+.doc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 18px;
+}
+
+.doc-card {
+  position: relative;
+  border-radius: 20px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: box-shadow .2s ease, border-color .2s ease;
+}
+
+.doc-card:hover { box-shadow: var(--shadow); border-color: var(--line-strong); }
+
+.doc-card__media {
+  position: relative;
+  height: 168px;
+  display: grid;
+  place-items: center;
+  background: var(--bg-sunken);
+  color: var(--ink-4);
+}
+
+.doc-card[data-tone="pdf"] .doc-card__media { background: var(--danger-soft); color: var(--danger); }
+.doc-card[data-tone="txt"] .doc-card__media { background: var(--cat-blue-bg); color: var(--cat-blue); }
+.doc-card[data-tone="md"]  .doc-card__media { background: var(--accent-soft); color: var(--accent); }
+
+.doc-card__glyph { opacity: 0.55; }
+
+/* os recortes: retângulo na cor do card + dois cantos côncavos que emendam a curva */
+.doc-card__kind,
+.doc-card__size {
+  position: absolute;
+  background: var(--card);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+
+.doc-card__kind {
+  top: 0;
+  left: 0;
+  padding: 7px 12px 8px 14px;
+  border-bottom-right-radius: 14px;
+}
+
+.doc-card__size {
+  bottom: 0;
+  right: 0;
+  padding: 7px 14px 8px 12px;
+  border-top-left-radius: 14px;
+  letter-spacing: 0.02em;
+  color: var(--ink-4);
+}
+
+/* o path preenche o canto inferior-direito; a rotação leva o preenchimento
+   para o lado do recorte, emendando a curva com a borda da mídia */
+.doc-card__corner { position: absolute; color: var(--card); }
+.doc-card__corner--kind-left   { top: 0; right: -19px; transform: rotate(180deg); }
+.doc-card__corner--kind-bottom { left: 0; bottom: -19px; transform: rotate(180deg); }
+.doc-card__corner--size-right  { bottom: 0; left: -19px; }
+.doc-card__corner--size-top    { right: 0; top: -19px; }
+
+.doc-card__body { padding: 14px 16px 16px; }
+
+.doc-card__title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.doc-card__file {
+  margin: 4px 0 0;
+  font-size: 11.5px;
+  color: var(--ink-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-card__remove {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--danger);
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity .2s ease, transform .2s ease, background .15s ease;
+}
+
+.doc-card:hover .doc-card__remove,
+.doc-card__remove:focus-visible { opacity: 1; transform: translateY(0); }
+.doc-card__remove:hover { background: var(--danger-soft); }
+.doc-card__remove:disabled { opacity: 0.5; cursor: not-allowed; }
