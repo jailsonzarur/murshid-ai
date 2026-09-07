@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState, type HTMLAttributes } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type HTMLAttributes } from 'react'
+import { motion } from 'motion/react'
 
 import { cn } from '../../lib/cn'
+import { navPillTransition } from '../../lib/motion'
 import { Icon, type IconName } from './icon'
 
 export type AppSidebarActiveItem =
@@ -59,6 +61,10 @@ type NavItemDef = {
   action?: 'logout'
 }
 
+type PillGeometry = { top: number; height: number }
+
+let lastPill: PillGeometry | null = null
+
 const menuItems: NavItemDef[] = [
   { id: 'dashboard', label: 'Painel', icon: 'home', path: '/dashboard' },
   { id: 'lectures', label: 'Transcrições', icon: 'clipboard', path: '/lectures' },
@@ -81,6 +87,22 @@ export function Sidebar({
   ...props
 }: SidebarProps) {
   const [footOpen, setFootOpen] = useState(false)
+  const [pill, setPill] = useState<PillGeometry | null>(null)
+  // snapshot de onde a pílula estava antes deste mount
+  const [pillFrom] = useState(() => lastPill)
+  const navSectionRef = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    const active = navSectionRef.current?.querySelector<HTMLElement>('.nav-item.active')
+    if (!active) {
+      setPill(null)
+      lastPill = null
+      return
+    }
+    const next = { top: active.offsetTop, height: active.offsetHeight }
+    setPill(next)
+    lastPill = next
+  }, [activeItem])
   const footWrapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -138,8 +160,18 @@ export function Sidebar({
 
       {/* Scrollable nav */}
       <div className="sidebar-nav">
-        <div className="nav-section">
+        <div className="nav-section" ref={navSectionRef}>
           <div className="nav-section-label">Menu Principal</div>
+          {pill ? (
+            <motion.span
+              animate={{ y: pill.top }}
+              aria-hidden="true"
+              className="nav-pill"
+              initial={{ y: (pillFrom ?? pill).top }}
+              style={{ height: pill.height }}
+              transition={navPillTransition}
+            />
+          ) : null}
           {menuItems.map((item) => <NavItem key={item.id} item={item} />)}
         </div>
       </div>

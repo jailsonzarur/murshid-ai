@@ -11,6 +11,12 @@ export const screenMorphTransition: Transition = {
   mass: 0.9,
 }
 
+export const navPillTransition: Transition = {
+  type: 'spring',
+  bounce: 0.19,
+  duration: 0.4,
+}
+
 export const cardStaggerTransition: { container: Variants; item: Variants } = {
   container: {
     hidden: {},

@@ -210,6 +210,7 @@ a { color: inherit; text-decoration: none; }
   font-size: 13.5px;
   font-weight: 500;
   position: relative;
+  z-index: 1;
   cursor: pointer;
   transition: color .12s, background .12s;
   border: none;
@@ -232,7 +233,6 @@ a { color: inherit; text-decoration: none; }
 
 .nav-item.active {
   color: var(--accent);
-  background: var(--accent-softer);
   font-weight: 600;
 }
 
@@ -4227,3 +4227,16 @@ a { color: inherit; text-decoration: none; }
   transform: translateX(-50%) translateY(0);
 }
 
+
+/* pílula que desliza entre os itens do menu */
+.nav-section { position: relative; }
+
+.nav-pill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  border-radius: 8px;
+  background: var(--accent-softer);
+  pointer-events: none;
+}
