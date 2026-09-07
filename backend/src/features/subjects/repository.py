@@ -63,3 +63,8 @@ def add_subject_document(db: AsyncSession, document: SubjectDocumentModel) -> No
 
 async def delete_subject_document(db: AsyncSession, document: SubjectDocumentModel) -> None:
     await db.delete(document)
+
+
+async def get_subject_document_by_id(db: AsyncSession, document_id: UUID) -> SubjectDocumentModel | None:
+    return await db.get(SubjectDocumentModel, document_id)
+

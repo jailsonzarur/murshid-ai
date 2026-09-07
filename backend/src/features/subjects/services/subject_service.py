@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Any, cast
 from uuid import UUID
 
 from fastapi import HTTPException, UploadFile, status
@@ -24,6 +25,7 @@ from src.features.subjects.services.subject_document_service import (
     discard_stored_documents,
     store_documents,
 )
+from src.features.subjects.tasks import ingest_subject_document_task
 
 _DUPLICATE_NAME = "Já existe uma matéria com esse nome."
 _NOT_FOUND = "Matéria não encontrada."
@@ -86,6 +88,10 @@ async def create_subject(
         raise
 
     await db.refresh(subject, ["documents"])
+
+    for document in subject.documents:
+        cast(Any, ingest_subject_document_task).delay(str(document.id))
+
     return SubjectDetailSchema.model_validate(subject)
 
 

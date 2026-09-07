@@ -5,7 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.features.subjects.models import SubjectDocumentStatus
+from src.features.files.services.bucket_service import get_bucket_service
+from src.features.subjects.models import SubjectDocumentModel, SubjectDocumentStatus
 
 
 class SubjectSchema(BaseModel):
@@ -33,9 +34,21 @@ class SubjectDocumentSchema(BaseModel):
     size_bytes: int
     page_count: int | None
     status: SubjectDocumentStatus
+    thumbnail_url: str | None = None
+    icon_url: str | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @classmethod
+    def from_model(cls, document: SubjectDocumentModel) -> SubjectDocumentSchema:
+        schema = cls.model_validate(document)
+        bucket = get_bucket_service()
+        if document.thumbnail_key:
+            schema.thumbnail_url = bucket.get_presigned_url(document.thumbnail_key)
+        if document.icon_key:
+            schema.icon_url = bucket.get_presigned_url(document.icon_key)
+        return schema
 
 
 class DeleteSubjectDocumentResponse(BaseModel):

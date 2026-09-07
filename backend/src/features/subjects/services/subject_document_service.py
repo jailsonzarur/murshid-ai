@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import tempfile
+from pathlib import Path
 from uuid import UUID
 
 from fastapi import HTTPException, UploadFile, status
@@ -98,7 +100,7 @@ async def list_documents(
     if await get_subject_by_id(db, subject_id, user_id) is None:
         raise _error(status.HTTP_404_NOT_FOUND, "Matéria não encontrada.")
     documents = await list_subject_documents(db, subject_id)
-    return [SubjectDocumentSchema.model_validate(document) for document in documents]
+    return [SubjectDocumentSchema.from_model(document) for document in documents]
 
 
 async def remove_document(db: AsyncSession, document_id: UUID, user_id: UUID) -> None:
@@ -106,11 +108,100 @@ async def remove_document(db: AsyncSession, document_id: UUID, user_id: UUID) ->
     if document is None:
         raise _error(status.HTTP_404_NOT_FOUND, "Documento não encontrado.")
 
-    object_key = document.object_key
+    keys = [document.object_key, document.thumbnail_key, document.icon_key]
     await delete_subject_document(db, document)
     await db.commit()
 
-    try:
-        get_bucket_service().delete(object_key)
-    except Exception:
-        logger.exception("remove_document: failed to delete %s", object_key)
+    bucket = get_bucket_service()
+    for key in keys:
+        if not key:
+            continue
+        try:
+            bucket.delete(key)
+        except Exception:
+            logger.exception("remove_document: failed to delete %s", key)
+
+
+async def _upload_png(
+    bucket: object, content: bytes | None, name: str, folder: str
+) -> str | None:
+    if not content:
+        return None
+    upload = await asyncio.to_thread(
+        bucket.upload,  # type: ignore[attr-defined]
+        content,
+        name,
+        folder=folder,
+        content_type="image/png",
+    )
+    return upload.key
+
+
+async def ingest_document(document_id: UUID) -> None:
+    """Gera a capa e conta as páginas. Roda no worker, fora do ciclo da request."""
+    from src.database import AsyncSessionLocal
+    from src.features.subjects.ai.document_ingestion import build_preview
+    from src.features.subjects.models import SubjectDocumentStatus
+    from src.features.subjects.repository import get_subject_document_by_id
+
+    async with AsyncSessionLocal() as db:
+        document = await get_subject_document_by_id(db, document_id)
+        if document is None:
+            logger.warning("ingest_document: document %s not found", document_id)
+            return
+        # só READY encerra: PROCESSING precisa passar para que o retry funcione
+        if document.status == SubjectDocumentStatus.READY:
+            return
+
+        document.status = SubjectDocumentStatus.PROCESSING
+        document.error_log = None
+        await db.commit()
+
+        object_key = document.object_key
+        mime_type = document.mime_type
+        original_name = document.original_name
+        subject_id = document.subject_id
+
+    bucket = get_bucket_service()
+    with tempfile.TemporaryDirectory(prefix="subject-doc-") as tmp:
+        source_path = Path(tmp) / original_name
+        await asyncio.to_thread(bucket.download_to, object_key, source_path)
+        preview = await asyncio.to_thread(build_preview, source_path, mime_type)
+
+        stem = Path(original_name).stem
+        thumbnail_key = await _upload_png(
+            bucket, preview.thumbnail_png, f"{stem}.png", f"subjects/{subject_id}/thumbnails"
+        )
+        icon_key = await _upload_png(
+            bucket, preview.icon_png, f"{stem}-icon.png", f"subjects/{subject_id}/icons"
+        )
+
+    async with AsyncSessionLocal() as db:
+        document = await get_subject_document_by_id(db, document_id)
+        if document is None:
+            for key in (thumbnail_key, icon_key):
+                if key:
+                    await asyncio.to_thread(bucket.delete, key)
+            return
+
+        document.page_count = preview.page_count
+        document.thumbnail_key = thumbnail_key
+        document.icon_key = icon_key
+        document.status = SubjectDocumentStatus.READY
+        await db.commit()
+
+    logger.info("ingest_document done for %s: pages=%s", document_id, preview.page_count)
+
+
+async def mark_document_failed(document_id: UUID, message: str) -> None:
+    from src.database import AsyncSessionLocal
+    from src.features.subjects.models import SubjectDocumentStatus
+    from src.features.subjects.repository import get_subject_document_by_id
+
+    async with AsyncSessionLocal() as db:
+        document = await get_subject_document_by_id(db, document_id)
+        if document is None:
+            return
+        document.status = SubjectDocumentStatus.FAILED
+        document.error_log = message[:2000]
+        await db.commit()

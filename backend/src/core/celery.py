@@ -22,7 +22,7 @@ celery_app = Celery(
     "api_v2",
     broker=broker_url,
     backend=result_backend,
-    include=["src.features.lectures.tasks"],
+    include=["src.features.lectures.tasks", "src.features.subjects.tasks"],
 )
 
 celery_app.conf.update(
