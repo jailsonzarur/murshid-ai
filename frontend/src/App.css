@@ -4385,3 +4385,28 @@ a { color: inherit; text-decoration: none; }
 
 .screen-panel--modal { height: auto; max-height: calc(100svh - 48px); }
 .screen-panel--modal .screen-panel__inner { max-height: inherit; }
+
+.confirm-modal {
+  padding: 22px;
+}
+
+.confirm-modal__title {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink-1);
+}
+
+.confirm-modal__text {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.confirm-modal__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}

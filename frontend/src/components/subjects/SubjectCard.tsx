@@ -5,7 +5,11 @@ import { useFittingCount } from '../../hooks/useFittingCount'
 import { ApiError, deleteSubjectDocument } from '../../lib/api'
 import { cardReveal, layoutTransition } from '../../lib/motion'
 import type { SubjectDetail, SubjectDocument } from '../../types/lecture'
-import { ExpandableScreen, ExpandableScreenTrigger } from '../ui/expandable-screen'
+import {
+  ExpandableModal,
+  ExpandableScreen,
+  ExpandableScreenTrigger,
+} from '../ui/expandable-screen'
 import { Icon } from '../ui/icon'
 import { SubjectDocumentsScreen } from './SubjectDocumentsScreen'
 
@@ -13,7 +17,7 @@ const TILE_WIDTH = 40
 const TILE_GAP = 8
 
 type SubjectCardProps = {
-  onDelete: (subject: SubjectDetail) => void
+  onDelete: (subject: SubjectDetail) => Promise<void>
   onDocumentRemoved: (documentId: string) => void
   ref?: Ref<HTMLDivElement>
   subject: SubjectDetail
@@ -58,9 +62,12 @@ export const SubjectCard = memo(function SubjectCard({
   subject,
 }: SubjectCardProps) {
   const [isScreenOpen, setIsScreenOpen] = useState(false)
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [removingId, setRemovingId] = useState<string | null>(null)
   const stripRef = useRef<HTMLDivElement>(null)
 
+  const confirmLayoutId = `subject-delete-${subject.id}`
   const documents = subject.documents
   const visibleCount = useFittingCount(stripRef, {
     itemWidth: TILE_WIDTH,
@@ -69,6 +76,18 @@ export const SubjectCard = memo(function SubjectCard({
   })
   const visible = documents.slice(0, visibleCount)
   const overflow = documents.length - visible.length
+
+  async function handleConfirmDelete() {
+    setIsDeleting(true)
+    try {
+      await onDelete(subject)
+      setIsConfirmOpen(false)
+    } catch (error) {
+      if (!(error instanceof ApiError)) throw error
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   async function handleRemoveDocument(documentId: string) {
     setRemovingId(documentId)
@@ -136,14 +155,16 @@ export const SubjectCard = memo(function SubjectCard({
               <span>Documentos</span>
             </button>
           </ExpandableScreenTrigger>
-          <button
-            className="btn btn-ghost btn-sm danger"
-            onClick={() => onDelete(subject)}
-            type="button"
-          >
-            <Icon name="trash" size={12} />
-            <span>Excluir</span>
-          </button>
+          <ExpandableScreenTrigger isOpen={isConfirmOpen} layoutId={confirmLayoutId}>
+            <button
+              className="btn btn-ghost btn-sm danger"
+              onClick={() => setIsConfirmOpen(true)}
+              type="button"
+            >
+              <Icon name="trash" size={12} />
+              <span>Excluir</span>
+            </button>
+          </ExpandableScreenTrigger>
         </div>
       </div>
 
@@ -161,6 +182,41 @@ export const SubjectCard = memo(function SubjectCard({
           removingId={removingId}
         />
       </ExpandableScreen>
+
+      <ExpandableModal
+        isOpen={isConfirmOpen}
+        label="Excluir matéria"
+        layoutId={confirmLayoutId}
+        onClose={() => setIsConfirmOpen(false)}
+        width={440}
+      >
+        <div className="confirm-modal">
+          <h2 className="confirm-modal__title">Excluir matéria</h2>
+          <p className="confirm-modal__text">
+            Tem certeza que deseja excluir <strong>{subject.name}</strong>? Aulas vinculadas a
+            essa matéria continuarão existindo, mas perderão o vínculo.
+          </p>
+          <div className="confirm-modal__actions">
+            <button
+              className="btn btn-ghost"
+              disabled={isDeleting}
+              onClick={() => setIsConfirmOpen(false)}
+              type="button"
+            >
+              Cancelar
+            </button>
+            <button
+              className="btn btn-danger"
+              disabled={isDeleting}
+              onClick={() => void handleConfirmDelete()}
+              type="button"
+            >
+              <Icon name="trash" size={14} />
+              <span>{isDeleting ? 'Excluindo...' : 'Excluir'}</span>
+            </button>
+          </div>
+        </div>
+      </ExpandableModal>
     </motion.div>
   )
 })
