@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
+import { AnimatePresence } from 'motion/react'
 
 import { AppShell } from '../components/layout/app-shell'
 import { NovaMateriaModal } from '../components/subjects/NovaMateriaModal'
 import { SubjectCard } from '../components/subjects/SubjectCard'
+import {
+  PaginationSkeleton,
+  SubjectCardSkeleton,
+} from '../components/subjects/SubjectCardSkeleton'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { EmptyState } from '../components/ui/empty-state'
 import { Icon } from '../components/ui/icon'
@@ -12,11 +17,12 @@ import { deleteSubject, listSubjects, pollSubjects } from '../lib/api'
 import { navigateTo } from '../lib/navigation'
 import type { PaginationMeta, Subject, SubjectDetail, SubjectDocument } from '../types/lecture'
 
+const SKELETON_COUNT = 12
+
 function isDocumentBusy(document: SubjectDocument) {
   return document.status === 'PENDING' || document.status === 'PROCESSING'
 }
 
-/** Ignora as URLs assinadas, que mudam a cada poll; só a transição de estado importa. */
 function statusSignature(subject: SubjectDetail) {
   return subject.documents.map((document) => `${document.id}:${document.status}`).join('|')
 }
@@ -48,7 +54,6 @@ export function SubjectsPage() {
         setSubjects(data.subjects)
         setMeta(data.meta)
 
-        // apagar o último item de uma página deixa ela vazia; recua
         if (data.subjects.length === 0 && data.meta.total_pages > 0) {
           setPage(Math.min(page, data.meta.total_pages))
         }
@@ -67,8 +72,6 @@ export function SubjectsPage() {
     }
   }, [page, reloadToken])
 
-  // só as matérias com documento pendente entram no poll, e só os cards
-  // delas trocam de identidade — o resto do grid não re-renderiza
   useEffect(() => {
     const pendingIds = subjects
       .filter((subject) => subject.documents.some(isDocumentBusy))
@@ -138,30 +141,38 @@ export function SubjectsPage() {
     >
 
       <section aria-label="Lista de matérias" className="subjects-list">
-        {isLoading ? (
-          <EmptyState description="Buscando matérias cadastradas." title="Carregando..." />
-        ) : subjects.length === 0 ? (
+        {!isLoading && subjects.length === 0 ? (
           <EmptyState
             description="Use o botão Nova matéria para cadastrar a primeira."
             title="Nenhuma matéria cadastrada."
           />
         ) : (
           <div className="subject-grid">
-            {subjects.map((subject) => (
-              <SubjectCard
-                key={subject.id}
-                onDelete={handleDelete}
-                onDocumentRemoved={handleDocumentRemoved}
-                subject={subject}
-              />
-            ))}
+            <AnimatePresence mode="popLayout">
+              {isLoading
+                ? Array.from({ length: meta?.items_per_page ?? SKELETON_COUNT }, (_, index) => (
+                    <SubjectCardSkeleton index={index} key={`skeleton-${index}`} />
+                  ))
+                : subjects.map((subject) => (
+                    <SubjectCard
+                      key={subject.id}
+                      onDelete={handleDelete}
+                      onDocumentRemoved={handleDocumentRemoved}
+                      subject={subject}
+                    />
+                  ))}
+            </AnimatePresence>
           </div>
         )}
       </section>
 
-      {meta && meta.total_pages > 1 ? (
+      {isLoading || (meta && meta.total_pages > 1) ? (
         <footer className="subjects-foot">
-          <Pagination isBusy={isLoading} meta={meta} onPageChange={setPage} />
+          {meta && !isLoading ? (
+            <Pagination isBusy={isLoading} meta={meta} onPageChange={setPage} />
+          ) : (
+            <PaginationSkeleton />
+          )}
         </footer>
       ) : null}
 

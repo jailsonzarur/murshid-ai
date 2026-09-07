@@ -1,9 +1,9 @@
-import { memo, useRef, useState } from 'react'
+import { memo, useRef, useState, type Ref } from 'react'
 import { motion } from 'motion/react'
 
 import { useFittingCount } from '../../hooks/useFittingCount'
 import { ApiError, deleteSubjectDocument } from '../../lib/api'
-import { layoutTransition } from '../../lib/motion'
+import { cardReveal, layoutTransition } from '../../lib/motion'
 import type { SubjectDetail, SubjectDocument } from '../../types/lecture'
 import { ExpandableScreen, ExpandableScreenTrigger } from '../ui/expandable-screen'
 import { Icon } from '../ui/icon'
@@ -15,6 +15,7 @@ const TILE_GAP = 8
 type SubjectCardProps = {
   onDelete: (subject: SubjectDetail) => void
   onDocumentRemoved: (documentId: string) => void
+  ref?: Ref<HTMLDivElement>
   subject: SubjectDetail
 }
 
@@ -53,6 +54,7 @@ function SubjectTile({ document }: { document: SubjectDocument }) {
 export const SubjectCard = memo(function SubjectCard({
   onDelete,
   onDocumentRemoved,
+  ref,
   subject,
 }: SubjectCardProps) {
   const [isScreenOpen, setIsScreenOpen] = useState(false)
@@ -81,7 +83,15 @@ export const SubjectCard = memo(function SubjectCard({
   }
 
   return (
-    <motion.div className="subject-card" layout transition={layoutTransition}>
+    <motion.div
+      animate={cardReveal.animate}
+      className="subject-card"
+      exit={cardReveal.exit}
+      initial={cardReveal.initial}
+      layout
+      ref={ref}
+      transition={layoutTransition}
+    >
       <div className="subject-card__head">
         <span aria-hidden="true" className="avatar lg blue">
           <Icon name="tag" size={18} />

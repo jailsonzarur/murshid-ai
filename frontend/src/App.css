@@ -3807,6 +3807,7 @@ a { color: inherit; text-decoration: none; }
    ============================================ */
 
 .subject-grid {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   /* piso: 186px é a altura mínima do conteúdo, abaixo disso ele vaza.
@@ -4334,3 +4335,50 @@ a { color: inherit; text-decoration: none; }
 .pagination__step:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .pagination__gap { padding: 0 2px; color: var(--ink-4); font-size: 12.5px; }
+
+/* ============================================
+   Skeleton
+   ============================================ */
+
+.skeleton {
+  display: block;
+  border-radius: 6px;
+  background: var(--bg-sunken);
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    oklch(100% 0 0 / 0.65),
+    transparent
+  );
+  animation: skeleton-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-sweep {
+  to { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { animation: none; }
+}
+
+.subject-skeleton { pointer-events: none; }
+
+.skeleton--avatar { width: 34px; height: 34px; border-radius: 10px; }
+.skeleton--title { flex: 1; max-width: 140px; height: 13px; }
+.skeleton--count { width: 34px; height: 20px; border-radius: 999px; }
+.skeleton--label { width: 76px; height: 9px; margin-bottom: 6px; }
+.skeleton--tile { width: 43px; height: 43px; border-radius: 13px; }
+.skeleton--button { height: 31px; border-radius: 9px; }
+
+.skeleton--summary { width: 92px; height: 11px; }
+.skeleton--page { width: 32px; height: 32px; border-radius: 9px; }

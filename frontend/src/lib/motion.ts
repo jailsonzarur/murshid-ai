@@ -17,6 +17,29 @@ export const navPillTransition: Transition = {
   duration: 0.4,
 }
 
+const revealEase = [0.2, 0, 0, 1] as const
+
+export const cardReveal = {
+  initial: { opacity: 0, scale: 0.92 },
+  animate: {
+    opacity: 1,
+    scale: 1,
+    transition: { duration: 0.45, ease: revealEase },
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.92,
+    transition: { duration: 0.3, ease: revealEase },
+  },
+}
+
+export const skeletonEnter = {
+  initial: { opacity: 0, y: -12 },
+  animate: { opacity: 1, y: 0 },
+}
+
+export const SKELETON_STAGGER = 0.045
+
 export const cardStaggerTransition: { container: Variants; item: Variants } = {
   container: {
     hidden: {},
