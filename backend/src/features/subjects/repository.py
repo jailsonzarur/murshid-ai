@@ -4,6 +4,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.features.subjects.models import SubjectDocumentModel, SubjectModel
 
@@ -24,7 +25,10 @@ async def get_subject_by_id(db: AsyncSession, subject_id: UUID, user_id: UUID) -
 
 async def list_subjects(db: AsyncSession, user_id: UUID) -> list[SubjectModel]:
     result = await db.execute(
-        select(SubjectModel).where(SubjectModel.user_id == user_id).order_by(SubjectModel.name)
+        select(SubjectModel)
+        .where(SubjectModel.user_id == user_id)
+        .options(selectinload(SubjectModel.documents))
+        .order_by(SubjectModel.name)
     )
     return list(result.scalars().all())
 
@@ -68,3 +72,14 @@ async def delete_subject_document(db: AsyncSession, document: SubjectDocumentMod
 async def get_subject_document_by_id(db: AsyncSession, document_id: UUID) -> SubjectDocumentModel | None:
     return await db.get(SubjectDocumentModel, document_id)
 
+
+async def get_subjects_by_ids(
+    db: AsyncSession, user_id: UUID, subject_ids: list[UUID]
+) -> list[SubjectModel]:
+    result = await db.execute(
+        select(SubjectModel)
+        .where(SubjectModel.user_id == user_id, SubjectModel.id.in_(subject_ids))
+        .options(selectinload(SubjectModel.documents))
+        .order_by(SubjectModel.name)
+    )
+    return list(result.scalars().all())

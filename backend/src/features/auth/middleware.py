@@ -28,6 +28,7 @@ GUEST_ALLOWED_ROUTES = {
     ("DELETE", "/users/{user_id}"),
     ("GET", "/subjects"),
     ("POST", "/subjects"),
+    ("POST", "/subjects/status"),
     ("PATCH", "/subjects/{subject_id}"),
     ("DELETE", "/subjects/{subject_id}"),
     ("GET", "/subjects/{subject_id}/documents"),

@@ -14,6 +14,7 @@ from src.features.subjects.repository import (
     delete_subject,
     get_subject_by_id,
     get_subject_by_name,
+    get_subjects_by_ids,
     list_subjects,
 )
 from src.features.subjects.schemas.subject_schemas import (
@@ -49,9 +50,16 @@ async def _require_subject(db: AsyncSession, subject_id: UUID, user_id: UUID) ->
     return subject
 
 
-async def list_all_subjects(db: AsyncSession, user_id: UUID) -> list[SubjectSchema]:
+async def list_all_subjects(db: AsyncSession, user_id: UUID) -> list[SubjectDetailSchema]:
     subjects = await list_subjects(db, user_id)
-    return [SubjectSchema.model_validate(subject) for subject in subjects]
+    return [SubjectDetailSchema.from_model(subject) for subject in subjects]
+
+
+async def list_subjects_by_ids(
+    db: AsyncSession, user_id: UUID, subject_ids: list[UUID]
+) -> list[SubjectDetailSchema]:
+    subjects = await get_subjects_by_ids(db, user_id, subject_ids)
+    return [SubjectDetailSchema.from_model(subject) for subject in subjects]
 
 
 async def create_subject(

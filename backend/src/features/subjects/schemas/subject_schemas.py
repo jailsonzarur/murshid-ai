@@ -6,7 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.features.files.services.bucket_service import get_bucket_service
-from src.features.subjects.models import SubjectDocumentModel, SubjectDocumentStatus
+from src.features.subjects.models import SubjectDocumentModel, SubjectDocumentStatus, SubjectModel
 
 
 class SubjectSchema(BaseModel):
@@ -58,3 +58,11 @@ class DeleteSubjectDocumentResponse(BaseModel):
 
 class SubjectDetailSchema(SubjectSchema):
     documents: list[SubjectDocumentSchema] = []
+
+    @classmethod
+    def from_model(cls, subject: SubjectModel) -> SubjectDetailSchema:
+        return cls(
+            id=subject.id,
+            name=subject.name,
+            documents=[SubjectDocumentSchema.from_model(d) for d in subject.documents],
+        )
