@@ -25,6 +25,18 @@ export type SubjectDetail = Subject & {
   documents: SubjectDocument[]
 }
 
+export type PaginationMeta = {
+  page: number
+  items_per_page: number
+  total_items: number
+  total_pages: number
+}
+
+export type PaginatedSubjects = {
+  meta: PaginationMeta
+  subjects: SubjectDetail[]
+}
+
 export type LectureNode = {
   id: string
   parent_id: string | null

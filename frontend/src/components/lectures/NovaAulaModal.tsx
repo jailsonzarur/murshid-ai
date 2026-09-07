@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 
-import { ApiError, listSubjects, startLecture } from '../../lib/api'
+import { ApiError, listSubjectOptions, startLecture } from '../../lib/api'
 import { navigateTo } from '../../lib/navigation'
 import type { Subject } from '../../types/lecture'
 import { Card, CardContent } from '../ui/card'
@@ -23,7 +23,7 @@ export function NovaAulaModal({ onClose }: NovaAulaModalProps) {
   useEffect(() => {
     async function load() {
       try {
-        const data = await listSubjects()
+        const data = await listSubjectOptions()
         setSubjects(data)
       } catch {
         setSubjects([])

@@ -6,10 +6,11 @@ import { SubjectCard } from '../components/subjects/SubjectCard'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { EmptyState } from '../components/ui/empty-state'
 import { Icon } from '../components/ui/icon'
+import { Pagination } from '../components/ui/pagination'
 import { getAccessToken } from '../lib/auth'
 import { deleteSubject, listSubjects, pollSubjects } from '../lib/api'
 import { navigateTo } from '../lib/navigation'
-import type { Subject, SubjectDetail, SubjectDocument } from '../types/lecture'
+import type { PaginationMeta, Subject, SubjectDetail, SubjectDocument } from '../types/lecture'
 
 function isDocumentBusy(document: SubjectDocument) {
   return document.status === 'PENDING' || document.status === 'PROCESSING'
@@ -22,19 +23,49 @@ function statusSignature(subject: SubjectDetail) {
 
 export function SubjectsPage() {
   const [subjects, setSubjects] = useState<SubjectDetail[]>([])
+  const [meta, setMeta] = useState<PaginationMeta | null>(null)
+  const [page, setPage] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<Subject | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [reloadToken, setReloadToken] = useState(0)
+
 
   useEffect(() => {
-    if (!getAccessToken()) {
-      navigateTo('/login', { replace: true })
-      return
+    if (!getAccessToken()) navigateTo('/login', { replace: true })
+  }, [])
+
+  useEffect(() => {
+    if (!getAccessToken()) return
+    let active = true
+
+    async function loadSubjects() {
+      setIsLoading(true)
+      try {
+        const data = await listSubjects(page)
+        if (!active) return
+        setSubjects(data.subjects)
+        setMeta(data.meta)
+
+        // apagar o último item de uma página deixa ela vazia; recua
+        if (data.subjects.length === 0 && data.meta.total_pages > 0) {
+          setPage(Math.min(page, data.meta.total_pages))
+        }
+      } catch {
+        if (!active) return
+        setSubjects([])
+        setMeta(null)
+      } finally {
+        if (active) setIsLoading(false)
+      }
     }
 
     void loadSubjects()
-  }, [])
+    return () => {
+      active = false
+    }
+  }, [page, reloadToken])
 
   // só as matérias com documento pendente entram no poll, e só os cards
   // delas trocam de identidade — o resto do grid não re-renderiza
@@ -77,17 +108,6 @@ export function SubjectsPage() {
     )
   }, [])
 
-  async function loadSubjects() {
-    setIsLoading(true)
-    try {
-      const data = await listSubjects()
-      setSubjects(data)
-    } catch {
-      setSubjects([])
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   async function handleConfirmDelete() {
     if (!confirmDelete) return
@@ -95,7 +115,7 @@ export function SubjectsPage() {
     try {
       await deleteSubject(confirmDelete.id)
       setConfirmDelete(null)
-      await loadSubjects()
+      setReloadToken((value) => value + 1)
     } catch {
       return
     } finally {
@@ -112,11 +132,12 @@ export function SubjectsPage() {
         </button>
       }
       activeItem="subjects"
+      contentClassName="page--fixed"
       description="Cadastre as matérias que organizarão suas aulas e anexe a bibliografia de cada uma."
       title="Matérias"
     >
 
-      <section aria-label="Lista de matérias">
+      <section aria-label="Lista de matérias" className="subjects-list">
         {isLoading ? (
           <EmptyState description="Buscando matérias cadastradas." title="Carregando..." />
         ) : subjects.length === 0 ? (
@@ -137,6 +158,12 @@ export function SubjectsPage() {
           </div>
         )}
       </section>
+
+      {meta && meta.total_pages > 1 ? (
+        <footer className="subjects-foot">
+          <Pagination isBusy={isLoading} meta={meta} onPageChange={setPage} />
+        </footer>
+      ) : null}
 
       {confirmDelete ? (
         <div className="modal-backdrop" role="presentation">
@@ -178,7 +205,7 @@ export function SubjectsPage() {
           onClose={() => setIsCreateOpen(false)}
           onCreated={() => {
             setIsCreateOpen(false)
-            void loadSubjects()
+            setReloadToken((value) => value + 1)
           }}
         />
       ) : null}

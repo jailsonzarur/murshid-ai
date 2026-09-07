@@ -11,6 +11,7 @@ import type {
 } from '../types/exam'
 import type { OrderedExamUploadFile } from '../types/exam-upload'
 import type {
+  PaginatedSubjects,
   Subject,
   SubjectDetail,
   SubjectDocument,
@@ -506,16 +507,32 @@ function requireAuth() {
   return authorization
 }
 
-export async function listSubjects() {
+export async function listSubjects(page = 1, itemsPerPage?: number) {
   const authorization = requireAuth()
 
-  const response = await fetchApi(`${API_BASE_URL}/subjects`, {
+  const query = new URLSearchParams({ page: String(page) })
+  if (itemsPerPage) query.set('items_per_page', String(itemsPerPage))
+
+  const response = await fetchApi(`${API_BASE_URL}/subjects?${query}`, {
     headers: {
       Authorization: authorization,
     },
   })
 
-  return parseApiResponse<SubjectDetail[]>(response)
+  return parseApiResponse<PaginatedSubjects>(response)
+}
+
+/** Lista enxuta para seletores: só id e nome, sem documentos nem paginação. */
+export async function listSubjectOptions() {
+  const authorization = requireAuth()
+
+  const response = await fetchApi(`${API_BASE_URL}/subjects/options`, {
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  return parseApiResponse<Subject[]>(response)
 }
 
 export async function createSubject(name: string, documents: File[] = []) {

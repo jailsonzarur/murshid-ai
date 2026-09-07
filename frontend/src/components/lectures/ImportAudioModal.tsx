@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 
-import { ApiError, importLecture, listSubjects } from '../../lib/api'
+import { ApiError, importLecture, listSubjectOptions } from '../../lib/api'
 import { navigateTo } from '../../lib/navigation'
 import type { Subject } from '../../types/lecture'
 import { Card, CardContent } from '../ui/card'
@@ -77,7 +77,7 @@ export function ImportAudioModal({ onClose }: ImportAudioModalProps) {
   useEffect(() => {
     async function load() {
       try {
-        const data = await listSubjects()
+        const data = await listSubjectOptions()
         setSubjects(data)
       } catch {
         setSubjects([])
