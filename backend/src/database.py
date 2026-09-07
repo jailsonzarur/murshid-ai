@@ -24,18 +24,6 @@ engine = create_async_engine(
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
-def import_models() -> None:
-    from src.features.lectures.models import LectureModel, LectureSegmentModel  # noqa: F401
-    from src.features.subjects.models import SubjectDocumentModel, SubjectModel  # noqa: F401
-    from src.features.users.models import UserModel  # noqa: F401
-
-
-async def init_db() -> None:
-    import_models()
-    # async with engine.begin() as conn:
-    #     await conn.run_sync(Base.metadata.create_all)
-
-
 async def close_db() -> None:
     await engine.dispose()
 
@@ -43,3 +31,15 @@ async def close_db() -> None:
 async def get_db():
     async with AsyncSessionLocal() as session:
         yield session
+
+
+# Registro dos models no metadata.
+#
+# Precisa acontecer no import, não numa função que alguém chame: quando isso
+# dependia de init_db(), a API chamava e o worker não, e o FK de users ficava
+# pendurado até estourar no flush — silenciosamente, e só no worker.
+#
+# Fica no fim do arquivo porque os models importam Base daqui.
+from src.features.lectures.models import LectureModel, LectureSegmentModel  # noqa: E402,F401
+from src.features.subjects.models import SubjectDocumentModel, SubjectModel  # noqa: E402,F401
+from src.features.users.models import UserModel  # noqa: E402,F401

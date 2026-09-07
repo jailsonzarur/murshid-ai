@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import ALLOWED_ORIGINS
-from src.database import close_db, get_db, init_db
+from src.database import close_db, get_db
 from src.features.auth import router as auth_router
 from src.features.auth.middleware import PermissionMiddleware
 from src.features.lectures import router as lectures_router
@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting API v2")
-    await init_db()
     yield
     await close_db()
 

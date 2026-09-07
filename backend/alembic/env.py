@@ -9,9 +9,7 @@ from alembic import context
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.database import DATABASE_URL, Base, import_models  # noqa: E402
-
-import_models()
+from src.database import DATABASE_URL, Base  # noqa: E402
 
 config = context.config
 config.set_main_option("sqlalchemy.url", DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://"))
