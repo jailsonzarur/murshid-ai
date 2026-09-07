@@ -1,15 +1,19 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 
 import { ApiError, createSubject } from '../../lib/api'
-import { Card, CardContent } from '../ui/card'
+import { CardContent } from '../ui/card'
+import { ExpandableModal } from '../ui/expandable-screen'
 import { Icon } from '../ui/icon'
 import { Input } from '../ui/input'
+
+export const NOVA_MATERIA_LAYOUT_ID = 'nova-materia'
 
 const MAX_FILES = 10
 const MAX_FILE_BYTES = 50 * 1024 * 1024
 const ACCEPT_TYPES = '.pdf,.txt,.md,application/pdf,text/plain,text/markdown'
 
 type NovaMateriaModalProps = {
+  isOpen: boolean
   onClose: () => void
   onCreated: () => void
 }
@@ -25,7 +29,7 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export function NovaMateriaModal({ onClose, onCreated }: NovaMateriaModalProps) {
+export function NovaMateriaModal({ isOpen, onClose, onCreated }: NovaMateriaModalProps) {
   const [name, setName] = useState('')
   const [entries, setEntries] = useState<Entry[]>([])
   const [nameError, setNameError] = useState<string | undefined>()
@@ -95,8 +99,12 @@ export function NovaMateriaModal({ onClose, onCreated }: NovaMateriaModalProps) 
   }
 
   return (
-    <div className="modal-backdrop" role="presentation">
-      <Card style={{ maxWidth: 640, width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+    <ExpandableModal
+      isOpen={isOpen}
+      label="Nova matéria"
+      layoutId={NOVA_MATERIA_LAYOUT_ID}
+      onClose={onClose}
+    >
         <div
           style={{
             display: 'flex',
@@ -293,7 +301,6 @@ export function NovaMateriaModal({ onClose, onCreated }: NovaMateriaModalProps) 
             <span>{isSubmitting ? 'Criando...' : 'Criar matéria'}</span>
           </button>
         </div>
-      </Card>
-    </div>
+    </ExpandableModal>
   )
 }

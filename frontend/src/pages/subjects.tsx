@@ -2,13 +2,17 @@ import { useCallback, useEffect, useState } from 'react'
 import { AnimatePresence } from 'motion/react'
 
 import { AppShell } from '../components/layout/app-shell'
-import { NovaMateriaModal } from '../components/subjects/NovaMateriaModal'
+import {
+  NOVA_MATERIA_LAYOUT_ID,
+  NovaMateriaModal,
+} from '../components/subjects/NovaMateriaModal'
 import { SubjectCard } from '../components/subjects/SubjectCard'
 import {
   PaginationSkeleton,
   SubjectCardSkeleton,
 } from '../components/subjects/SubjectCardSkeleton'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { ExpandableScreenTrigger } from '../components/ui/expandable-screen'
 import { EmptyState } from '../components/ui/empty-state'
 import { Icon } from '../components/ui/icon'
 import { Pagination } from '../components/ui/pagination'
@@ -129,10 +133,12 @@ export function SubjectsPage() {
   return (
     <AppShell
       actions={
-        <button className="btn btn-primary" onClick={() => setIsCreateOpen(true)} type="button">
-          <Icon name="plus" size={14} />
-          <span>Nova matéria</span>
-        </button>
+        <ExpandableScreenTrigger isOpen={isCreateOpen} layoutId={NOVA_MATERIA_LAYOUT_ID}>
+          <button className="btn btn-primary" onClick={() => setIsCreateOpen(true)} type="button">
+            <Icon name="plus" size={14} />
+            <span>Nova matéria</span>
+          </button>
+        </ExpandableScreenTrigger>
       }
       activeItem="subjects"
       contentClassName="page--fixed"
@@ -211,15 +217,14 @@ export function SubjectsPage() {
         </div>
       ) : null}
 
-      {isCreateOpen ? (
-        <NovaMateriaModal
-          onClose={() => setIsCreateOpen(false)}
-          onCreated={() => {
-            setIsCreateOpen(false)
-            setReloadToken((value) => value + 1)
-          }}
-        />
-      ) : null}
+      <NovaMateriaModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onCreated={() => {
+          setIsCreateOpen(false)
+          setReloadToken((value) => value + 1)
+        }}
+      />
     </AppShell>
   )
 }
