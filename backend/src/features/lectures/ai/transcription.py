@@ -14,7 +14,9 @@ from src.features.lectures.ai.audio_chunking import prepare_audio_for_whisper
 
 logger = logging.getLogger(__name__)
 
-_MODEL = "whisper-1"
+# gpt-4o-mini-transcribe custa metade do whisper-1 e tem WER menor.
+# Configurável para permitir rollback sem deploy.
+_MODEL = str(config("TRANSCRIPTION_MODEL", default="gpt-4o-mini-transcribe")).strip()
 WHISPER_CONCURRENCY = 3
 
 _openai_client: AsyncOpenAI | None = None
@@ -36,6 +38,25 @@ def _dump_failed_chunk(audio_bytes: bytes, filename: str) -> Path:
     return dump_path
 
 
+# os modelos gpt-*-transcribe cortam a saída em 2000 tokens sem sinalizar erro
+_OUTPUT_TOKEN_LIMIT = 2000
+
+
+def _warn_if_truncated(transcription: object, filename: str) -> None:
+    usage = getattr(transcription, "usage", None)
+    output_tokens = getattr(usage, "output_tokens", None)
+    if output_tokens is None:
+        return
+    if output_tokens >= _OUTPUT_TOKEN_LIMIT * 0.95:
+        logger.warning(
+            "transcription of %s used %d/%d output tokens; the text was likely truncated. "
+            "Reduce CHUNK_TARGET_SECONDS.",
+            filename,
+            output_tokens,
+            _OUTPUT_TOKEN_LIMIT,
+        )
+
+
 async def transcribe_audio_chunk(audio_bytes: bytes, filename: str) -> str:
     client = _get_openai_client()
     try:
@@ -44,6 +65,7 @@ async def transcribe_audio_chunk(audio_bytes: bytes, filename: str) -> str:
             file=(filename, audio_bytes),
             language="pt",
         )
+        _warn_if_truncated(transcription, filename)
         return transcription.text
     except BadRequestError:
         dump_path = _dump_failed_chunk(audio_bytes, filename)
