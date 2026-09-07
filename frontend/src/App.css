@@ -4382,3 +4382,6 @@ a { color: inherit; text-decoration: none; }
 
 .skeleton--summary { width: 92px; height: 11px; }
 .skeleton--page { width: 32px; height: 32px; border-radius: 9px; }
+
+.screen-panel--modal { height: auto; max-height: calc(100svh - 48px); }
+.screen-panel--modal .screen-panel__inner { max-height: inherit; }
