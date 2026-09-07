@@ -1,62 +1,80 @@
-import { useEffect, useState } from 'react'
+import { memo, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 
-import { ApiError, deleteSubjectDocument, listSubjectDocuments } from '../../lib/api'
+import { useFittingCount } from '../../hooks/useFittingCount'
+import { ApiError, deleteSubjectDocument } from '../../lib/api'
 import { layoutTransition } from '../../lib/motion'
-import type { Subject, SubjectDocument } from '../../types/lecture'
+import type { SubjectDetail, SubjectDocument } from '../../types/lecture'
 import { ExpandableScreen, ExpandableScreenTrigger } from '../ui/expandable-screen'
 import { Icon } from '../ui/icon'
 import { SubjectDocumentsScreen } from './SubjectDocumentsScreen'
 
+const TILE_WIDTH = 40
+const TILE_GAP = 8
+
 type SubjectCardProps = {
-  onDelete: () => void
-  subject: Subject
+  onDelete: (subject: SubjectDetail) => void
+  onDocumentRemoved: (documentId: string) => void
+  subject: SubjectDetail
 }
 
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+function isBusy(document: SubjectDocument) {
+  return document.status === 'PENDING' || document.status === 'PROCESSING'
 }
 
-export function SubjectCard({ onDelete, subject }: SubjectCardProps) {
-  const [documents, setDocuments] = useState<SubjectDocument[]>([])
-  const [isLoadingDocuments, setIsLoadingDocuments] = useState(true)
-  const [documentsError, setDocumentsError] = useState<string | undefined>()
-  const [removingId, setRemovingId] = useState<string | null>(null)
+function tooltipFor(document: SubjectDocument) {
+  if (document.status === 'FAILED') return `${document.title} — falhou`
+  if (isBusy(document)) return `${document.title} — processando`
+  return document.page_count ? `${document.title} · ${document.page_count} pág.` : document.title
+}
+
+function SubjectTile({ document }: { document: SubjectDocument }) {
+  const [imageFailed, setImageFailed] = useState(false)
+  const source = document.icon_url ?? document.thumbnail_url
+
+  return (
+    <span className="subject-tile" data-status={document.status} data-tooltip={tooltipFor(document)}>
+      {source && !imageFailed ? (
+        <img
+          alt=""
+          className="subject-tile__img"
+          loading="lazy"
+          onError={() => setImageFailed(true)}
+          src={source}
+        />
+      ) : (
+        <Icon name="fileText" size={15} />
+      )}
+      {isBusy(document) ? <span className="subject-tile__busy" /> : null}
+    </span>
+  )
+}
+
+export const SubjectCard = memo(function SubjectCard({
+  onDelete,
+  onDocumentRemoved,
+  subject,
+}: SubjectCardProps) {
   const [isScreenOpen, setIsScreenOpen] = useState(false)
+  const [removingId, setRemovingId] = useState<string | null>(null)
+  const stripRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    let active = true
-
-    async function loadDocuments() {
-      setIsLoadingDocuments(true)
-      setDocumentsError(undefined)
-      try {
-        const data = await listSubjectDocuments(subject.id)
-        if (active) setDocuments(data)
-      } catch (error) {
-        if (!active) return
-        setDocuments([])
-        if (error instanceof ApiError) setDocumentsError(error.message)
-      } finally {
-        if (active) setIsLoadingDocuments(false)
-      }
-    }
-
-    void loadDocuments()
-    return () => {
-      active = false
-    }
-  }, [subject.id])
+  const documents = subject.documents
+  const visibleCount = useFittingCount(stripRef, {
+    itemWidth: TILE_WIDTH,
+    gap: TILE_GAP,
+    total: documents.length,
+  })
+  const visible = documents.slice(0, visibleCount)
+  const overflow = documents.length - visible.length
 
   async function handleRemoveDocument(documentId: string) {
     setRemovingId(documentId)
     try {
       await deleteSubjectDocument(documentId)
-      setDocuments((prev) => prev.filter((document) => document.id !== documentId))
+      onDocumentRemoved(documentId)
     } catch (error) {
-      if (error instanceof ApiError) setDocumentsError(error.message)
+      if (!(error instanceof ApiError)) throw error
     } finally {
       setRemovingId(null)
     }
@@ -68,7 +86,9 @@ export function SubjectCard({ onDelete, subject }: SubjectCardProps) {
         <span aria-hidden="true" className="avatar lg blue">
           <Icon name="tag" size={18} />
         </span>
-        <span className="subject-card__title">{subject.name}</span>
+        <span className="subject-card__title" title={subject.name}>
+          {subject.name}
+        </span>
         <span className="subject-card__count">
           <Icon name="fileText" size={11} />
           {documents.length}
@@ -78,40 +98,22 @@ export function SubjectCard({ onDelete, subject }: SubjectCardProps) {
       <div className="subject-card__panel-inner">
         <div className="subject-card__section-label">Bibliografia</div>
 
-        {isLoadingDocuments ? (
-          <p className="subject-card__hint">Buscando documentos...</p>
-        ) : documents.length > 0 ? (
-          <ul className="subject-card__docs">
-            {documents.map((document) => (
-              <li className="subject-card__doc" key={document.id}>
-                <span aria-hidden="true" className="subject-card__doc-icon">
-                  <Icon name="fileText" size={13} />
-                </span>
-                <span className="subject-card__doc-info">
-                  <span className="subject-card__doc-name" title={document.original_name}>
-                    {document.original_name}
-                  </span>
-                  <span className="subject-card__doc-size">{formatBytes(document.size_bytes)}</span>
-                </span>
-                <button
-                  aria-label={`Remover ${document.original_name}`}
-                  className="icon-btn danger"
-                  disabled={removingId === document.id}
-                  onClick={() => void handleRemoveDocument(document.id)}
-                  type="button"
-                >
-                  <Icon name="trash" size={13} />
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="subject-card__hint">
-            Nenhum documento anexado. Os resumos guiados usam essa bibliografia.
-          </p>
-        )}
-
-        {documentsError ? <p className="subject-card__error">{documentsError}</p> : null}
+        <div className="subject-strip" ref={stripRef}>
+          {documents.length === 0 ? (
+            <p className="subject-card__hint">
+              Nenhum documento anexado. Os resumos guiados usam essa bibliografia.
+            </p>
+          ) : (
+            <>
+              {visible.map((document) => (
+                <SubjectTile document={document} key={document.id} />
+              ))}
+              {overflow > 0 ? (
+                <span className="subject-tile subject-tile--more">+{overflow}</span>
+              ) : null}
+            </>
+          )}
+        </div>
 
         <div className="subject-card__actions">
           <ExpandableScreenTrigger isOpen={isScreenOpen} layoutId={`subject-docs-${subject.id}`}>
@@ -121,10 +123,14 @@ export function SubjectCard({ onDelete, subject }: SubjectCardProps) {
               type="button"
             >
               <Icon name="layers" size={12} />
-              <span>Gerenciar documentos</span>
+              <span>Documentos</span>
             </button>
           </ExpandableScreenTrigger>
-          <button className="btn btn-ghost btn-sm danger" onClick={onDelete} type="button">
+          <button
+            className="btn btn-ghost btn-sm danger"
+            onClick={() => onDelete(subject)}
+            type="button"
+          >
             <Icon name="trash" size={12} />
             <span>Excluir</span>
           </button>
@@ -140,11 +146,11 @@ export function SubjectCard({ onDelete, subject }: SubjectCardProps) {
       >
         <SubjectDocumentsScreen
           documents={documents}
-          isLoading={isLoadingDocuments}
+          isLoading={false}
           onRemove={(documentId) => void handleRemoveDocument(documentId)}
           removingId={removingId}
         />
       </ExpandableScreen>
     </motion.div>
   )
-}
+})

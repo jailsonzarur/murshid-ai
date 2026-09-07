@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { AppShell } from '../components/layout/app-shell'
 import { NovaMateriaModal } from '../components/subjects/NovaMateriaModal'
@@ -7,12 +7,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { EmptyState } from '../components/ui/empty-state'
 import { Icon } from '../components/ui/icon'
 import { getAccessToken } from '../lib/auth'
-import { deleteSubject, listSubjects } from '../lib/api'
+import { deleteSubject, listSubjects, pollSubjects } from '../lib/api'
 import { navigateTo } from '../lib/navigation'
-import type { Subject } from '../types/lecture'
+import type { Subject, SubjectDetail, SubjectDocument } from '../types/lecture'
+
+function isDocumentBusy(document: SubjectDocument) {
+  return document.status === 'PENDING' || document.status === 'PROCESSING'
+}
+
+/** Ignora as URLs assinadas, que mudam a cada poll; só a transição de estado importa. */
+function statusSignature(subject: SubjectDetail) {
+  return subject.documents.map((document) => `${document.id}:${document.status}`).join('|')
+}
 
 export function SubjectsPage() {
-  const [subjects, setSubjects] = useState<Subject[]>([])
+  const [subjects, setSubjects] = useState<SubjectDetail[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<Subject | null>(null)
@@ -25,6 +34,47 @@ export function SubjectsPage() {
     }
 
     void loadSubjects()
+  }, [])
+
+  // só as matérias com documento pendente entram no poll, e só os cards
+  // delas trocam de identidade — o resto do grid não re-renderiza
+  useEffect(() => {
+    const pendingIds = subjects
+      .filter((subject) => subject.documents.some(isDocumentBusy))
+      .map((subject) => subject.id)
+
+    if (pendingIds.length === 0) return
+
+    const timer = setTimeout(async () => {
+      let fresh: SubjectDetail[]
+      try {
+        fresh = await pollSubjects(pendingIds)
+      } catch {
+        return
+      }
+
+      setSubjects((prev) =>
+        prev.map((subject) => {
+          const updated = fresh.find((candidate) => candidate.id === subject.id)
+          if (!updated) return subject
+          return statusSignature(updated) === statusSignature(subject) ? subject : updated
+        }),
+      )
+    }, 3000)
+
+    return () => clearTimeout(timer)
+  }, [subjects])
+
+  const handleDelete = useCallback((subject: SubjectDetail) => setConfirmDelete(subject), [])
+
+  const handleDocumentRemoved = useCallback((documentId: string) => {
+    setSubjects((prev) =>
+      prev.map((subject) =>
+        subject.documents.some((document) => document.id === documentId)
+          ? { ...subject, documents: subject.documents.filter((d) => d.id !== documentId) }
+          : subject,
+      ),
+    )
   }, [])
 
   async function loadSubjects() {
@@ -79,7 +129,8 @@ export function SubjectsPage() {
             {subjects.map((subject) => (
               <SubjectCard
                 key={subject.id}
-                onDelete={() => setConfirmDelete(subject)}
+                onDelete={handleDelete}
+                onDocumentRemoved={handleDocumentRemoved}
                 subject={subject}
               />
             ))}

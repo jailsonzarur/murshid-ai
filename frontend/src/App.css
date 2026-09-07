@@ -3807,16 +3807,20 @@ a { color: inherit; text-decoration: none; }
 
 .subject-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
   align-items: start;
 }
+
+@media (max-width: 1280px) { .subject-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 980px)  { .subject-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 680px)  { .subject-grid { grid-template-columns: 1fr; } }
 
 .subject-card {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 14px;
-  overflow: hidden;
+  /* sem overflow: hidden — cortaria o tooltip dos tiles */
   transition: border-color .15s ease, box-shadow .15s ease;
 }
 
@@ -3911,12 +3915,24 @@ a { color: inherit; text-decoration: none; }
 
 .subject-card__doc-size { font-size: 11px; color: var(--ink-4); }
 
+/* grid em vez de flex: 1fr 1fr divide exatamente igual, sem as
+   sutilezas de flex-basis com um wrapper no meio */
 .subject-card__actions {
-  display: flex;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 6px;
   margin-top: 14px;
 }
+
+.subject-card__actions > * { min-width: 0; }
+
+.subject-card__actions .screen-trigger,
+.subject-card__actions .screen-trigger__content {
+  display: flex;
+  width: 100%;
+}
+
+.subject-card__actions .btn { width: 100%; justify-content: center; }
 
 .subject-card__actions .btn-ghost.danger { color: var(--danger); }
 .subject-card__actions .btn-ghost.danger:hover { background: var(--danger-soft); }
@@ -3992,8 +4008,7 @@ a { color: inherit; text-decoration: none; }
 .doc-card__media {
   position: relative;
   height: 168px;
-  display: grid;
-  place-items: center;
+  overflow: hidden;
   background: var(--bg-sunken);
   color: var(--ink-4);
 }
@@ -4002,7 +4017,13 @@ a { color: inherit; text-decoration: none; }
 .doc-card[data-tone="txt"] .doc-card__media { background: var(--cat-blue-bg); color: var(--cat-blue); }
 .doc-card[data-tone="md"]  .doc-card__media { background: var(--accent-soft); color: var(--accent); }
 
-.doc-card__glyph { opacity: 0.55; }
+.doc-card__glyph {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  opacity: 0.55;
+}
 
 /* os recortes: retângulo na cor do card + dois cantos côncavos que emendam a curva */
 .doc-card__kind,
@@ -4084,3 +4105,125 @@ a { color: inherit; text-decoration: none; }
 .doc-card__remove:focus-visible { opacity: 1; transform: translateY(0); }
 .doc-card__remove:hover { background: var(--danger-soft); }
 .doc-card__remove:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.doc-card__cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
+}
+
+.doc-card__badge {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(4px);
+}
+
+.doc-card__badge--busy { background: oklch(100% 0 0 / 0.86); color: var(--ink-3); }
+.doc-card__badge--failed { background: var(--danger); color: #fff; }
+
+/* ============================================
+   Subject card — faixa horizontal de documentos
+   ============================================ */
+
+/* altura fixa: é o que mantém todos os cards do grid iguais,
+   independentemente de quantos documentos a matéria tem */
+.subject-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 44px;
+}
+
+.subject-tile {
+  position: relative;
+  width: 43px;
+  height: 43px;
+  border-radius: 13px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  color: var(--ink-4);
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+
+.subject-tile:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-sm);
+  z-index: 2;
+}
+
+.subject-tile__img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 12px; }
+
+.subject-tile--more {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink-3);
+  background: var(--card-alt);
+}
+
+.subject-tile[data-status="FAILED"] { border-color: var(--danger); }
+
+/* o overlay fica parado; só o circulo gira */
+.subject-tile__busy {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: oklch(100% 0 0 / 0.72);
+  border-radius: 12px;
+}
+
+.subject-tile__busy::after {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--line-2);
+  border-top-color: var(--accent);
+  animation: subject-tile-spin 700ms linear infinite;
+}
+
+@keyframes subject-tile-spin { to { transform: rotate(360deg); } }
+
+/* tooltip: title nativo demora ~1s pra aparecer */
+.subject-tile[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--bg-elev);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .14s ease, transform .14s ease;
+  z-index: 5;
+}
+
+.subject-tile[data-tooltip]:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+

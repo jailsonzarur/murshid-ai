@@ -23,6 +23,10 @@ function kindOf(document: SubjectDocument) {
   return KIND_BY_MIME[document.mime_type] ?? { label: 'DOC', tone: 'txt' }
 }
 
+function isProcessing(document: SubjectDocument) {
+  return document.status === 'PENDING' || document.status === 'PROCESSING'
+}
+
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -65,10 +69,31 @@ export function SubjectDocumentsScreen({
             variants={cardStaggerTransition.item}
           >
             <div className="doc-card__media">
-              {/* placeholder: a capa real vem quando o pipeline de ingestão existir */}
-              <span aria-hidden="true" className="doc-card__glyph">
-                <Icon name="fileText" size={38} />
-              </span>
+              {document.thumbnail_url ? (
+                <img
+                  alt=""
+                  className="doc-card__cover"
+                  loading="lazy"
+                  src={document.thumbnail_url}
+                />
+              ) : (
+                <span aria-hidden="true" className="doc-card__glyph">
+                  <Icon name="fileText" size={38} />
+                </span>
+              )}
+
+              {isProcessing(document) ? (
+                <span className="doc-card__badge doc-card__badge--busy">
+                  <Icon name="clock" size={11} />
+                  Processando
+                </span>
+              ) : null}
+              {document.status === 'FAILED' ? (
+                <span className="doc-card__badge doc-card__badge--failed">
+                  <Icon name="alertTriangle" size={11} />
+                  Falhou
+                </span>
+              ) : null}
 
               <div className="doc-card__kind">
                 {kind.label}
@@ -88,7 +113,9 @@ export function SubjectDocumentsScreen({
                 {document.title}
               </h3>
               <p className="doc-card__file" title={document.original_name}>
-                {document.original_name}
+                {document.page_count
+                  ? `${document.original_name} · ${document.page_count} pág.`
+                  : document.original_name}
               </p>
             </div>
 

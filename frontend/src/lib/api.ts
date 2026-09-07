@@ -515,7 +515,7 @@ export async function listSubjects() {
     },
   })
 
-  return parseApiResponse<Subject[]>(response)
+  return parseApiResponse<SubjectDetail[]>(response)
 }
 
 export async function createSubject(name: string, documents: File[] = []) {
@@ -536,6 +536,21 @@ export async function createSubject(name: string, documents: File[] = []) {
   })
 
   return parseApiResponse<SubjectDetail>(response)
+}
+
+export async function pollSubjects(subjectIds: string[]) {
+  const authorization = requireAuth()
+
+  const response = await fetchApi(`${API_BASE_URL}/subjects/status`, {
+    method: 'POST',
+    headers: {
+      Authorization: authorization,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ subject_ids: subjectIds }),
+  })
+
+  return parseApiResponse<SubjectDetail[]>(response)
 }
 
 export async function listSubjectDocuments(subjectId: string) {

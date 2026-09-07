@@ -16,6 +16,8 @@ export type SubjectDocument = {
   size_bytes: number
   page_count: number | null
   status: SubjectDocumentStatus
+  thumbnail_url: string | null
+  icon_url: string | null
   created_at: string
 }
 
