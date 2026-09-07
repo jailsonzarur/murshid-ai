@@ -9,10 +9,7 @@ logger = logging.getLogger(__name__)
 
 WHISPER_MAX_BYTES = 24 * 1024 * 1024
 CHUNK_TARGET_BYTES = 20 * 1024 * 1024
-# os modelos gpt-*-transcribe têm teto de 2000 tokens de saída, que o whisper
-# não tinha; 10 min de fala densa em português encostam nesse limite e o texto
-# sai truncado sem erro. 5 min deixa o dobro de folga.
-CHUNK_TARGET_SECONDS = 300
+CHUNK_TARGET_SECONDS = 600
 MIN_CHUNK_BYTES = 4 * 1024
 
 

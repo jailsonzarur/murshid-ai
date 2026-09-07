@@ -14,9 +14,7 @@ from src.features.lectures.ai.audio_chunking import prepare_audio_for_whisper
 
 logger = logging.getLogger(__name__)
 
-# gpt-4o-mini-transcribe custa metade do whisper-1 e tem WER menor.
-# Configurável para permitir rollback sem deploy.
-_MODEL = str(config("TRANSCRIPTION_MODEL", default="gpt-4o-mini-transcribe")).strip()
+_MODEL = str(config("TRANSCRIPTION_MODEL", default="whisper-1")).strip()
 WHISPER_CONCURRENCY = 3
 
 _openai_client: AsyncOpenAI | None = None
@@ -38,7 +36,6 @@ def _dump_failed_chunk(audio_bytes: bytes, filename: str) -> Path:
     return dump_path
 
 
-# os modelos gpt-*-transcribe cortam a saída em 2000 tokens sem sinalizar erro
 _OUTPUT_TOKEN_LIMIT = 2000
 
 
