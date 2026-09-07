@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -23,12 +23,32 @@ async def get_subject_by_id(db: AsyncSession, subject_id: UUID, user_id: UUID) -
     return result.scalar_one_or_none()
 
 
-async def list_subjects(db: AsyncSession, user_id: UUID) -> list[SubjectModel]:
+async def count_subjects(db: AsyncSession, user_id: UUID) -> int:
     result = await db.execute(
+        select(func.count()).select_from(SubjectModel).where(SubjectModel.user_id == user_id)
+    )
+    return result.scalar_one()
+
+
+async def list_subjects(
+    db: AsyncSession, user_id: UUID, *, offset: int = 0, limit: int | None = None
+) -> list[SubjectModel]:
+    query = (
         select(SubjectModel)
         .where(SubjectModel.user_id == user_id)
         .options(selectinload(SubjectModel.documents))
         .order_by(SubjectModel.name)
+        .offset(offset)
+    )
+    if limit is not None:
+        query = query.limit(limit)
+    result = await db.execute(query)
+    return list(result.scalars().all())
+
+
+async def list_subject_options(db: AsyncSession, user_id: UUID) -> list[SubjectModel]:
+    result = await db.execute(
+        select(SubjectModel).where(SubjectModel.user_id == user_id).order_by(SubjectModel.name)
     )
     return list(result.scalars().all())
 

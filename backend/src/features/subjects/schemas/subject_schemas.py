@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from src.features.files.services.bucket_service import get_bucket_service
 from src.features.subjects.models import SubjectDocumentModel, SubjectDocumentStatus, SubjectModel
+from src.shared.schemas.pagination import PaginationMeta
 
 
 class SubjectSchema(BaseModel):
@@ -56,6 +57,13 @@ class DeleteSubjectDocumentResponse(BaseModel):
     message: str
 
 
+class SubjectOptionSchema(BaseModel):
+    id: UUID
+    name: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class SubjectDetailSchema(SubjectSchema):
     documents: list[SubjectDocumentSchema] = []
 
@@ -66,3 +74,8 @@ class SubjectDetailSchema(SubjectSchema):
             name=subject.name,
             documents=[SubjectDocumentSchema.from_model(d) for d in subject.documents],
         )
+
+
+class PaginatedSubjectsSchema(BaseModel):
+    meta: PaginationMeta
+    subjects: list[SubjectDetailSchema]

@@ -11,14 +11,18 @@ from src.features.subjects.models import SubjectModel
 from src.features.subjects.repository import (
     add_subject,
     add_subject_document,
+    count_subjects,
     delete_subject,
     get_subject_by_id,
     get_subject_by_name,
     get_subjects_by_ids,
+    list_subject_options,
     list_subjects,
 )
 from src.features.subjects.schemas.subject_schemas import (
+    PaginatedSubjectsSchema,
     SubjectDetailSchema,
+    SubjectOptionSchema,
     SubjectSchema,
     UpdateSubjectSchema,
 )
@@ -27,6 +31,7 @@ from src.features.subjects.services.subject_document_service import (
     store_documents,
 )
 from src.features.subjects.tasks import ingest_subject_document_task
+from src.shared.schemas.pagination import build_meta
 
 _DUPLICATE_NAME = "Já existe uma matéria com esse nome."
 _NOT_FOUND = "Matéria não encontrada."
@@ -50,9 +55,29 @@ async def _require_subject(db: AsyncSession, subject_id: UUID, user_id: UUID) ->
     return subject
 
 
-async def list_all_subjects(db: AsyncSession, user_id: UUID) -> list[SubjectDetailSchema]:
-    subjects = await list_subjects(db, user_id)
-    return [SubjectDetailSchema.from_model(subject) for subject in subjects]
+DEFAULT_ITEMS_PER_PAGE = 12
+
+
+async def list_all_subjects(
+    db: AsyncSession,
+    user_id: UUID,
+    *,
+    page: int = 1,
+    items_per_page: int = DEFAULT_ITEMS_PER_PAGE,
+) -> PaginatedSubjectsSchema:
+    total_items = await count_subjects(db, user_id)
+    subjects = await list_subjects(
+        db, user_id, offset=(page - 1) * items_per_page, limit=items_per_page
+    )
+    return PaginatedSubjectsSchema(
+        meta=build_meta(page, items_per_page, total_items),
+        subjects=[SubjectDetailSchema.from_model(subject) for subject in subjects],
+    )
+
+
+async def list_all_subject_options(db: AsyncSession, user_id: UUID) -> list[SubjectOptionSchema]:
+    subjects = await list_subject_options(db, user_id)
+    return [SubjectOptionSchema.model_validate(subject) for subject in subjects]
 
 
 async def list_subjects_by_ids(
