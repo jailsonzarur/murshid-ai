@@ -112,7 +112,7 @@ export const SubjectCard = memo(function SubjectCard({
       transition={layoutTransition}
     >
       <div className="subject-card__head">
-        <span aria-hidden="true" className="avatar lg blue">
+        <span aria-hidden="true" className="avatar lg stage">
           <Icon name="tag" size={18} />
         </span>
         <span className="subject-card__title" title={subject.name}>

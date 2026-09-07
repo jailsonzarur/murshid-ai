@@ -315,6 +315,26 @@ a { color: inherit; text-decoration: none; }
 .avatar.pink { background: var(--cat-pink); }
 .avatar.yellow { background: var(--cat-yellow); color: oklch(35% 0.05 90); }
 
+.avatar.stage {
+  position: relative;
+  background: var(--stage);
+  box-shadow: 0 6px 16px oklch(40% 0.16 285 / 0.35);
+}
+
+.avatar.stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 30% 30%, oklch(100% 0 0 / 0.05) 0%, transparent 1px),
+    radial-gradient(circle at 70% 70%, oklch(100% 0 0 / 0.06) 0%, transparent 1px);
+  background-size: 4px 4px, 6px 6px;
+  opacity: 0.55;
+  box-shadow: inset 0 0 0 1px oklch(100% 0 0 / 0.1);
+}
+
 .avatar-img { width: 100%; height: 100%; object-fit: cover; }
 
 .user-name { font-size: 13px; font-weight: 600; line-height: 1.2; }
