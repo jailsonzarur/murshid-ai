@@ -4,118 +4,118 @@ import logging
 from typing import Any, cast
 from uuid import UUID
 
-from celery import chord
+from celery.exceptions import MaxRetriesExceededError
 
 from src.core.celery import celery_app
 from src.core.celery_async import run_async
-from src.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
 MAX_RETRIES = 3
 
 
-@celery_app.task(name="generate_lecture_summary_task")
-def generate_lecture_summary_task(lecture_id: str) -> None:
-    run_async(_generate_lecture_summary_task(UUID(lecture_id)))
+def _backoff(retries: int) -> int:
+    return 10 * 2**retries
 
 
-async def _generate_lecture_summary_task(lecture_id: UUID) -> None:
+async def _run_generate_summary(lecture_id: str) -> None:
     from src.features.lectures.services.lecture_service import generate_final_summary
 
-    await generate_final_summary(lecture_id)
+    await generate_final_summary(UUID(lecture_id))
 
 
-def dispatch_import_lecture(lecture_id: UUID, items: list[dict]) -> None:
-    chord(cast(Any, transcribe_import_file_task).s(str(lecture_id), item) for item in items)(
-        cast(Any, finalize_import_lecture_task).s(str(lecture_id))
+@celery_app.task(name="generate_lecture_summary_task")
+def generate_lecture_summary_task(lecture_id: str) -> None:
+    run_async(_run_generate_summary(lecture_id))
+
+
+def dispatch_import_lecture(lecture_id: UUID) -> None:
+    cast(Any, start_import_lecture_task).delay(str(lecture_id))
+
+
+@celery_app.task(bind=True, name="start_import_lecture_task", max_retries=MAX_RETRIES)
+def start_import_lecture_task(self, lecture_id: str) -> None:
+    from src.features.lectures.services.import_pipeline import start_import
+
+    try:
+        audio_ids = run_async(start_import(UUID(lecture_id)))
+    except Exception:
+        logger.exception("start_import_lecture_task: failed for lecture=%s", lecture_id)
+        raise self.retry(countdown=_backoff(self.request.retries))
+
+    for audio_id in audio_ids:
+        cast(Any, chunk_audio_task).delay(str(audio_id))
+
+
+@celery_app.task(name="finalize_lecture_task")
+def finalize_lecture_task(lecture_id: str) -> None:
+    from src.features.lectures.models import LectureStatus
+    from src.features.lectures.services.import_pipeline import finalize_lecture
+
+    outcome = run_async(finalize_lecture(UUID(lecture_id)))
+    if outcome is LectureStatus.COMPLETED:
+        cast(Any, generate_lecture_summary_task).delay(lecture_id)
+
+
+@celery_app.task(bind=True, name="chunk_audio_task", max_retries=MAX_RETRIES)
+def chunk_audio_task(self, audio_id: str) -> None:
+    from src.features.lectures.services.import_pipeline import (
+        chunk_audio,
+        lecture_id_of_audio,
+        mark_audio_failed,
     )
 
-
-@celery_app.task(bind=True, name="transcribe_import_file_task", max_retries=MAX_RETRIES)
-def transcribe_import_file_task(self, lecture_id: str, item: dict) -> dict | None:
-    object_key = item["object_key"]
-
     try:
-        transcript = run_async(_transcribe_import_file(item))
+        chunk_ids = run_async(chunk_audio(UUID(audio_id)))
     except Exception as exc:
-        if self.request.retries >= MAX_RETRIES:
-            logger.exception(
-                "transcribe_import_file_task: gave up on lecture=%s file=%s", lecture_id, object_key
-            )
-            _delete_object(object_key)
-            return None
-        raise self.retry(exc=exc, countdown=10 * 2**self.request.retries)
+        reason = f"{type(exc).__name__}: {exc}"
+        try:
+            raise self.retry(countdown=_backoff(self.request.retries))
+        except MaxRetriesExceededError:
+            logger.exception("chunk_audio_task: gave up on audio=%s", audio_id)
+            run_async(mark_audio_failed(UUID(audio_id), reason))
+            _finalize(run_async(lecture_id_of_audio(UUID(audio_id))))
+            return
 
-    _delete_object(object_key)
-    return {"transcript": transcript, "duration": float(item["duration"])}
-
-
-async def _transcribe_import_file(item: dict) -> str:
-    import asyncio
-    import tempfile
-    from pathlib import Path
-
-    from src.features.files.services.bucket_service import get_bucket_service
-    from src.features.lectures.ai.transcription import transcribe_audio_file
-
-    bucket = get_bucket_service()
-    with tempfile.TemporaryDirectory(prefix="whisper-import-") as tmp:
-        src_path = Path(tmp) / item["object_key"].rsplit("/", 1)[-1]
-        await asyncio.to_thread(bucket.download_to, item["object_key"], src_path)
-        return await transcribe_audio_file(src_path, duration_hint=float(item["duration"]))
+    for chunk_id in chunk_ids:
+        cast(Any, transcribe_chunk_task).delay(str(chunk_id))
 
 
-def _delete_object(object_key: str) -> None:
-    from src.features.files.services.bucket_service import get_bucket_service
+async def _run_transcribe_chunk(task, chunk_id: str) -> None:
+    from src.features.lectures.ai.transcription import is_permanent_transcription_error
+    from src.features.lectures.services.import_pipeline import fail_audio_of_chunk, transcribe_chunk
 
     try:
-        get_bucket_service().delete(object_key)
-    except Exception:
-        logger.exception("transcribe_import_file_task: failed to delete %s", object_key)
-
-
-@celery_app.task(name="finalize_import_lecture_task")
-def finalize_import_lecture_task(results: list[dict | None], lecture_id: str) -> None:
-    run_async(_finalize_import_lecture(results, UUID(lecture_id)))
-
-
-async def _finalize_import_lecture(results: list[dict | None], lecture_id: UUID) -> None:
-    from src.features.lectures.models import LectureSegmentModel, LectureStatus
-    from src.features.lectures.repository import add_segment, get_lecture_with_segments
-
-    async with AsyncSessionLocal() as db:
-        lecture = await get_lecture_with_segments(db, lecture_id)
-        if lecture is None:
-            logger.warning("finalize_import_lecture_task: lecture %s not found", lecture_id)
+        audio_id = await transcribe_chunk(UUID(chunk_id))
+    except Exception as exc:
+        reason = f"{type(exc).__name__}: {exc}"
+        if is_permanent_transcription_error(exc):
+            logger.error("transcribe_chunk_task: permanent failure on chunk=%s: %s", chunk_id, reason)
+            _finalize(await fail_audio_of_chunk(UUID(chunk_id), reason))
+            return
+        try:
+            raise task.retry(countdown=_backoff(task.request.retries))
+        except MaxRetriesExceededError:
+            logger.exception("transcribe_chunk_task: gave up on chunk=%s", chunk_id)
+            _finalize(await fail_audio_of_chunk(UUID(chunk_id), reason))
             return
 
-        if lecture.status != LectureStatus.PROCESSING:
-            return
+    if audio_id is not None:
+        cast(Any, consolidate_audio_task).delay(str(audio_id))
 
-        transcribed = [result for result in results if result is not None]
-        if len(transcribed) != len(results):
-            lecture.status = LectureStatus.FAILED
-            await db.commit()
-            return
 
-        next_sequence = max((segment.sequence for segment in lecture.segments), default=0) + 1
+@celery_app.task(bind=True, name="transcribe_chunk_task", max_retries=MAX_RETRIES)
+def transcribe_chunk_task(self, chunk_id: str) -> None:
+    run_async(_run_transcribe_chunk(self, chunk_id))
 
-        for offset, result in enumerate(transcribed):
-            duration = float(result["duration"])
-            await add_segment(
-                db,
-                LectureSegmentModel(
-                    lecture=lecture,
-                    sequence=next_sequence + offset,
-                    transcript=result["transcript"],
-                    duration_seconds=duration,
-                    offset_seconds=lecture.duration_seconds,
-                ),
-            )
-            lecture.duration_seconds += duration
 
-        lecture.status = LectureStatus.COMPLETED
-        await db.commit()
+@celery_app.task(name="consolidate_audio_task")
+def consolidate_audio_task(audio_id: str) -> None:
+    from src.features.lectures.services.import_pipeline import consolidate_audio
 
-    cast(Any, generate_lecture_summary_task).delay(str(lecture_id))
+    _finalize(run_async(consolidate_audio(UUID(audio_id))))
+
+
+def _finalize(lecture_id: UUID | None) -> None:
+    if lecture_id is not None:
+        cast(Any, finalize_lecture_task).delay(str(lecture_id))

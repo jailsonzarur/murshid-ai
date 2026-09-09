@@ -27,8 +27,20 @@ celery_app = Celery(
 
 celery_app.conf.update(
     accept_content=["json"],
+    task_routes={
+        "start_import_lecture_task": {"queue": "lectures"},
+        "finalize_lecture_task": {"queue": "lectures"},
+        "chunk_audio_task": {"queue": "audios"},
+        "consolidate_audio_task": {"queue": "audios"},
+        "transcribe_chunk_task": {"queue": "chunks"},
+        "generate_lecture_summary_task": {"queue": "summaries"},
+    },
     broker_connection_retry_on_startup=True,
     result_serializer="json",
+    task_acks_late=True,
+    broker_transport_options={
+        "visibility_timeout": _get_int_config("CELERY_VISIBILITY_TIMEOUT", default=7200),
+    },
     task_always_eager=_get_bool_config("CELERY_TASK_ALWAYS_EAGER", default=False),
     task_eager_propagates=True,
     task_serializer="json",

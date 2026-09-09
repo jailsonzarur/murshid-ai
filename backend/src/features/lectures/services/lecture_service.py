@@ -16,8 +16,14 @@ from src.features.lectures.ai.final_summary_agent import build_final_summary
 from src.features.lectures.ai.live_insight_agent import generate_live_insight
 from src.features.lectures.ai.mindmap_tree_agent import build_final_tree
 from src.features.lectures.ai.transcription import transcribe_audio_file
-from src.features.lectures.models import LectureModel, LectureSegmentModel, LectureStatus
+from src.features.lectures.models import (
+    LectureAudioModel,
+    LectureModel,
+    LectureSegmentModel,
+    LectureStatus,
+)
 from src.features.lectures.repository import (
+    add_audios,
     add_segment,
     create_lecture,
     delete_lecture,
@@ -321,7 +327,7 @@ async def start_import_lecture(
     await db.refresh(lecture, ["subject"])
 
     bucket = get_bucket_service()
-    task_items: list[dict] = []
+    audios: list[LectureAudioModel] = []
     uploaded_keys: list[str] = []
     try:
         for index, item in enumerate(audio_items, start=1):
@@ -336,7 +342,15 @@ async def start_import_lecture(
                 content_type=item["content_type"],
             )
             uploaded_keys.append(upload.key)
-            task_items.append({"object_key": upload.key, "duration": item["duration"]})
+            audios.append(
+                LectureAudioModel(
+                    lecture_id=lecture.id,
+                    sequence=index,
+                    object_key=upload.key,
+                    original_filename=item["filename"],
+                    duration_seconds=float(item["duration"]),
+                )
+            )
     except Exception:
         logger.exception("start_import_lecture: upload failure for lecture %s", lecture.id)
         for key in uploaded_keys:
@@ -351,8 +365,11 @@ async def start_import_lecture(
             detail={"success": False, "errors": ["Falha ao subir os áudios. Tente novamente."], "data": None},
         )
 
+    await add_audios(db, audios)
+    await db.commit()
+
     from src.features.lectures.tasks import dispatch_import_lecture
-    dispatch_import_lecture(lecture.id, task_items)
+    dispatch_import_lecture(lecture.id)
 
     return _build_summary(lecture)
 

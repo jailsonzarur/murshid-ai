@@ -137,6 +137,10 @@ def _prepare_sync(src_path: Path, out_dir: Path, duration_hint: float | None = N
     return chunks
 
 
+async def probe_duration_seconds(path: Path) -> float:
+    return await asyncio.to_thread(_probe_duration_seconds, path)
+
+
 async def prepare_audio_for_whisper(
     src_path: Path, out_dir: Path, duration_hint: float | None = None
 ) -> list[Path]:
