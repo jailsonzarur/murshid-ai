@@ -64,6 +64,11 @@ class SubjectOptionSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class SubjectOptionsResponse(BaseModel):
+    meta: PaginationMeta
+    data: list[SubjectOptionSchema]
+
+
 class SubjectDetailSchema(SubjectSchema):
     documents: list[SubjectDocumentSchema] = []
 

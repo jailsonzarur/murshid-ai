@@ -23,6 +23,7 @@ from src.features.subjects.schemas.subject_schemas import (
     PaginatedSubjectsSchema,
     SubjectDetailSchema,
     SubjectOptionSchema,
+    SubjectOptionsResponse,
     SubjectSchema,
     UpdateSubjectSchema,
 )
@@ -56,6 +57,7 @@ async def _require_subject(db: AsyncSession, subject_id: UUID, user_id: UUID) ->
 
 
 DEFAULT_ITEMS_PER_PAGE = 12
+OPTIONS_PER_PAGE = 20
 
 
 async def list_all_subjects(
@@ -75,9 +77,17 @@ async def list_all_subjects(
     )
 
 
-async def list_all_subject_options(db: AsyncSession, user_id: UUID) -> list[SubjectOptionSchema]:
-    subjects = await list_subject_options(db, user_id)
-    return [SubjectOptionSchema.model_validate(subject) for subject in subjects]
+async def list_paginated_subject_options(
+    db: AsyncSession, user_id: UUID, page: int, search: str | None = None
+) -> SubjectOptionsResponse:
+    total_items = await count_subjects(db, user_id, search)
+    subjects = await list_subject_options(
+        db, user_id, offset=(page - 1) * OPTIONS_PER_PAGE, limit=OPTIONS_PER_PAGE, search=search
+    )
+    return SubjectOptionsResponse(
+        meta=build_meta(page, OPTIONS_PER_PAGE, total_items),
+        data=[SubjectOptionSchema.model_validate(subject) for subject in subjects],
+    )
 
 
 async def list_subjects_by_ids(

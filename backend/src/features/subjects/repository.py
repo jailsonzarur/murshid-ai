@@ -23,11 +23,17 @@ async def get_subject_by_id(db: AsyncSession, subject_id: UUID, user_id: UUID) -
     return result.scalar_one_or_none()
 
 
-async def count_subjects(db: AsyncSession, user_id: UUID) -> int:
-    result = await db.execute(
-        select(func.count()).select_from(SubjectModel).where(SubjectModel.user_id == user_id)
+def _search_filter(query, search: str | None):
+    term = (search or "").strip()
+    return query if not term else query.where(SubjectModel.name.ilike(f"%{term}%"))
+
+
+async def count_subjects(db: AsyncSession, user_id: UUID, search: str | None = None) -> int:
+    query = _search_filter(
+        select(func.count()).select_from(SubjectModel).where(SubjectModel.user_id == user_id),
+        search,
     )
-    return result.scalar_one()
+    return (await db.execute(query)).scalar_one()
 
 
 async def list_subjects(
@@ -46,11 +52,21 @@ async def list_subjects(
     return list(result.scalars().all())
 
 
-async def list_subject_options(db: AsyncSession, user_id: UUID) -> list[SubjectModel]:
-    result = await db.execute(
-        select(SubjectModel).where(SubjectModel.user_id == user_id).order_by(SubjectModel.name)
-    )
-    return list(result.scalars().all())
+async def list_subject_options(
+    db: AsyncSession,
+    user_id: UUID,
+    *,
+    offset: int = 0,
+    limit: int | None = None,
+    search: str | None = None,
+) -> list[SubjectModel]:
+    query = _search_filter(
+        select(SubjectModel).where(SubjectModel.user_id == user_id).order_by(SubjectModel.name),
+        search,
+    ).offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
+    return list((await db.execute(query)).scalars().all())
 
 
 def add_subject(db: AsyncSession, subject: SubjectModel) -> None:

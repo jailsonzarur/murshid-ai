@@ -1,38 +1,24 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 
-import { ApiError, listSubjectOptions, startLecture } from '../../lib/api'
+import { ApiError, startLecture } from '../../lib/api'
 import { navigateTo } from '../../lib/navigation'
+import { fetchSubjectOptions } from '../../lib/subject-options'
 import type { Subject } from '../../types/lecture'
 import { Card, CardContent } from '../ui/card'
 import { Icon } from '../ui/icon'
 import { Input } from '../ui/input'
+import { SearchableSelect } from '../ui/searchable-select'
 
 type NovaAulaModalProps = {
   onClose: () => void
 }
 
 export function NovaAulaModal({ onClose }: NovaAulaModalProps) {
-  const [subjects, setSubjects] = useState<Subject[]>([])
-  const [isLoadingSubjects, setIsLoadingSubjects] = useState(true)
   const [title, setTitle] = useState('')
-  const [subjectId, setSubjectId] = useState<string | null>(null)
+  const [subject, setSubject] = useState<Subject | null>(null)
   const [titleError, setTitleError] = useState<string | undefined>()
   const [subjectError, setSubjectError] = useState<string | undefined>()
   const [isSubmitting, setIsSubmitting] = useState(false)
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const data = await listSubjectOptions()
-        setSubjects(data)
-      } catch {
-        setSubjects([])
-      } finally {
-        setIsLoadingSubjects(false)
-      }
-    }
-    void load()
-  }, [])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -42,17 +28,17 @@ export function NovaAulaModal({ onClose }: NovaAulaModalProps) {
     if (!trimmedTitle) {
       nextErrors.title = 'Informe um nome para a aula.'
     }
-    if (!subjectId) {
+    if (!subject) {
       nextErrors.subject = 'Selecione uma matéria.'
     }
 
     setTitleError(nextErrors.title)
     setSubjectError(nextErrors.subject)
-    if (nextErrors.title || nextErrors.subject) return
+    if (nextErrors.title || nextErrors.subject || !subject) return
 
     setIsSubmitting(true)
     try {
-      const lecture = await startLecture({ title: trimmedTitle, subject_id: subjectId })
+      const lecture = await startLecture({ title: trimmedTitle, subject_id: subject.id })
       navigateTo(`/lectures/${lecture.id}/record`)
     } catch (error) {
       if (error instanceof ApiError && error.kind === 'validation') {
@@ -111,44 +97,18 @@ export function NovaAulaModal({ onClose }: NovaAulaModalProps) {
             />
 
             <div>
-              <span
-                style={{
-                  display: 'block',
-                  fontSize: 12.5,
-                  fontWeight: 600,
-                  color: 'var(--ink-2)',
-                  marginBottom: 6,
+              <SearchableSelect
+                emptyMessage="Nenhuma matéria encontrada."
+                error={Boolean(subjectError)}
+                fetchOptions={fetchSubjectOptions}
+                label="Matéria"
+                onChange={(option) => {
+                  setSubject(option)
+                  setSubjectError(undefined)
                 }}
-              >
-                Matéria
-              </span>
-              {isLoadingSubjects ? (
-                <p style={{ fontSize: 13, color: 'var(--ink-4)' }}>Buscando matérias...</p>
-              ) : subjects.length === 0 ? (
-                <p style={{ fontSize: 13, color: 'var(--ink-4)' }}>
-                  Nenhuma matéria cadastrada. Crie uma em <strong>Matérias</strong> antes de iniciar.
-                </p>
-              ) : (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {subjects.map((subject) => {
-                    const selected = subject.id === subjectId
-                    return (
-                      <button
-                        className={selected ? 'tab active' : 'tab'}
-                        key={subject.id}
-                        onClick={() => {
-                          setSubjectId(subject.id)
-                          setSubjectError(undefined)
-                        }}
-                        style={{ flexShrink: 0 }}
-                        type="button"
-                      >
-                        {subject.name}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
+                placeholder="Selecione a matéria"
+                value={subject}
+              />
               {subjectError ? (
                 <span style={{ display: 'block', marginTop: 6, fontSize: 12, color: 'var(--danger)' }}>
                   {subjectError}
@@ -170,7 +130,7 @@ export function NovaAulaModal({ onClose }: NovaAulaModalProps) {
               </button>
               <button
                 className="btn btn-primary"
-                disabled={isSubmitting || isLoadingSubjects || subjects.length === 0}
+                disabled={isSubmitting}
                 type="submit"
               >
                 <Icon name="video" size={14} />

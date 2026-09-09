@@ -15,6 +15,7 @@ import type {
   Subject,
   SubjectDetail,
   SubjectDocument,
+  SubjectOptions,
   LectureDetail,
   LectureSummary,
   ProcessSegmentResponse,
@@ -522,17 +523,20 @@ export async function listSubjects(page = 1, itemsPerPage?: number) {
   return parseApiResponse<PaginatedSubjects>(response)
 }
 
-/** Lista enxuta para seletores: só id e nome, sem documentos nem paginação. */
-export async function listSubjectOptions() {
+export async function listSubjectOptions(page = 1, search?: string) {
   const authorization = requireAuth()
 
-  const response = await fetchApi(`${API_BASE_URL}/subjects/options`, {
+  const query = new URLSearchParams({ page: String(page) })
+  const term = search?.trim()
+  if (term) query.set('search', term)
+
+  const response = await fetchApi(`${API_BASE_URL}/subjects/options?${query}`, {
     headers: {
       Authorization: authorization,
     },
   })
 
-  return parseApiResponse<Subject[]>(response)
+  return parseApiResponse<SubjectOptions>(response)
 }
 
 export async function createSubject(name: string, documents: File[] = []) {

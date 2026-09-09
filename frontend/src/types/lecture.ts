@@ -32,6 +32,11 @@ export type PaginationMeta = {
   total_pages: number
 }
 
+export type SubjectOptions = {
+  meta: PaginationMeta
+  data: Subject[]
+}
+
 export type PaginatedSubjects = {
   meta: PaginationMeta
   subjects: SubjectDetail[]
