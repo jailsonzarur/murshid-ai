@@ -4,6 +4,7 @@ import json
 from typing import Annotated
 from uuid import UUID
 
+from decouple import config
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +19,7 @@ router = APIRouter()
 MAX_FILES = 10
 MAX_FILE_BYTES = 200 * 1024 * 1024  # 200 MB — worker fatia em pedaços p/ Whisper
 MAX_TOTAL_BYTES = 400 * 1024 * 1024  # teto agregado por aula
+MAX_TOTAL_MINUTES = int(str(config("IMPORT_MAX_TOTAL_MINUTES", default="180")).strip())
 ALLOWED_MIME_TYPES = {
     "audio/mpeg",
     "audio/mp3",
@@ -94,6 +96,13 @@ def _validate_uploads(files: list[UploadFile], parsed_durations: list) -> list[f
             raise _validation_error(f"Duração inválida para o arquivo {index + 1}.")
 
         validated.append(duration)
+
+    total_minutes = sum(validated) / 60
+    if total_minutes > MAX_TOTAL_MINUTES:
+        raise _validation_error(
+            f"Os áudios somam {total_minutes:.0f} minutos e o limite por aula é "
+            f"{MAX_TOTAL_MINUTES}. Divida em mais de uma aula.",
+        )
 
     return validated
 

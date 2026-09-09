@@ -156,6 +156,33 @@ class TestImportLectureValidation:
         assert response.status_code == 400
         assert import_calls == []
 
+    async def test_rejects_when_the_audio_minutes_exceed_the_ceiling(
+        self, client: AsyncClient, guest_headers: dict, import_calls, forbid_read, monkeypatch
+    ):
+        monkeypatch.setattr(route, "MAX_TOTAL_MINUTES", 60)
+        response = await _post(
+            client,
+            guest_headers,
+            [("files", ("aula.mp3", b"abc", "audio/mpeg"))],
+            [3601.0],
+        )
+        assert response.status_code == 400
+        assert "limite por aula" in str(response.json())
+        assert import_calls == []
+
+    async def test_accepts_audio_minutes_at_the_ceiling(
+        self, client: AsyncClient, guest_headers: dict, import_calls, forbid_read, monkeypatch
+    ):
+        monkeypatch.setattr(route, "MAX_TOTAL_MINUTES", 60)
+        response = await _post(
+            client,
+            guest_headers,
+            [("files", ("aula.mp3", b"abc", "audio/mpeg"))],
+            [3600.0],
+        )
+        assert response.status_code == 201
+        assert len(import_calls) == 1
+
     async def test_rejects_more_files_than_the_limit(
         self, client: AsyncClient, guest_headers: dict, import_calls, forbid_read, monkeypatch
     ):
