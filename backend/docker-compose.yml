@@ -38,10 +38,11 @@ services:
         condition: service_completed_successfully
 
   worker:
+    container_name: api_v2_worker
+    stop_grace_period: 120s
     build:
       context: .
       dockerfile: Dockerfile.worker
-    container_name: api_v2_worker
     env_file:
       - .env
     environment:
@@ -50,6 +51,11 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
       DEV_RELOAD: "1"
+      MEDIA_CONCURRENCY: "${MEDIA_CONCURRENCY:-2}"
+      TRANSCRIBE_CONCURRENCY: "${TRANSCRIBE_CONCURRENCY:-6}"
+      TRANSCRIBE_POOL: "${TRANSCRIBE_POOL:-prefork}"
+      SUMMARY_CONCURRENCY: "${SUMMARY_CONCURRENCY:-2}"
+      SUMMARY_POOL: "${SUMMARY_POOL:-prefork}"
       MINIO_PUBLIC_ENDPOINT: http://minio:9000
       BUCKET_PUBLIC_BASE_URL: http://localhost:9000
       MINIO_ROOT_USER: minioadmin
@@ -58,6 +64,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./worker-entrypoint.sh:/app/worker-entrypoint.sh:ro
+      - ./supervisord.conf:/app/supervisord.conf:ro
       - ./tmp:/app/tmp
     command: ["sh", "/app/worker-entrypoint.sh"]
     depends_on:

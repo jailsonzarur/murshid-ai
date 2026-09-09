@@ -11,6 +11,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
+    supervisor \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:0.5.31 /uv /usr/local/bin/uv
@@ -23,7 +24,7 @@ ENV HOME=/home/app \
     XDG_CACHE_HOME=/home/app/.cache
 
 COPY src ./src
-COPY worker-entrypoint.sh ./
+COPY worker-entrypoint.sh supervisord.conf ./
 
 RUN chmod +x worker-entrypoint.sh \
     && addgroup --system app \
