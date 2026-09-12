@@ -29,6 +29,13 @@ def generate_lecture_summary_task(lecture_id: str) -> None:
     _run_generate_summary(lecture_id)
 
 
+@celery_app.task(name="generate_lecture_mindmap_task")
+def generate_lecture_mindmap_task(lecture_id: str) -> None:
+    from src.features.lectures.services.lecture_service import generate_mindmap
+
+    generate_mindmap(UUID(lecture_id))
+
+
 def dispatch_import_lecture(lecture_id: UUID) -> None:
     cast(Any, start_import_lecture_task).delay(str(lecture_id))
 

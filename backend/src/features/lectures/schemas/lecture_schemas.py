@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
-from src.features.lectures.models import LectureStatus
+from src.features.lectures.models import LectureStatus, MindmapStatus
 from src.features.subjects.schemas.subject_schemas import SubjectSchema
 
 
@@ -59,6 +59,7 @@ class LectureDetailSchema(BaseModel):
     status: LectureStatus
     duration_seconds: float
     summary: str | None = None
+    mindmap_status: MindmapStatus
     nodes: list[LectureNodeSchema]
     segments: list[LectureSegmentSchema]
     created_at: datetime

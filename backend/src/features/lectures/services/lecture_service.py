@@ -3,12 +3,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import tempfile
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, BinaryIO, TypedDict, cast
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.pipeline_log import short, stage
@@ -23,6 +23,7 @@ from src.features.lectures.models import (
     LectureModel,
     LectureSegmentModel,
     LectureStatus,
+    MindmapStatus,
 )
 from src.features.lectures.repository import (
     add_audios,
@@ -85,6 +86,7 @@ def _build_detail(lecture: LectureModel) -> LectureDetailSchema:
         status=lecture.status,
         duration_seconds=lecture.duration_seconds,
         summary=lecture.summary,
+        mindmap_status=lecture.mindmap_status,
         nodes=[LectureNodeSchema.model_validate(node) for node in _nodes_from_mindmap(lecture)],
         segments=[LectureSegmentSchema.model_validate(segment) for segment in lecture.segments],
         created_at=lecture.created_at,
@@ -405,6 +407,9 @@ def _generate_final_summary(lecture_id: UUID) -> None:
         if not lecture:
             logger.warning("generate_final_summary: lecture %s not found", lecture_id)
             return
+        if lecture.summary is not None:
+            logger.info("generate_final_summary: lecture %s already summarised", lecture_id)
+            return
 
         segments_sorted = sorted(lecture.segments, key=lambda s: s.sequence)
         if not segments_sorted:
@@ -415,21 +420,11 @@ def _generate_final_summary(lecture_id: UUID) -> None:
         lecture_title = lecture.title
         subject_name = lecture.subject.name if lecture.subject else None
 
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        summary_task = pool.submit(
-            build_final_summary,
-            full_transcript=full_transcript,
-            lecture_title=lecture_title,
-            subject_name=subject_name,
-        )
-        tree_task = pool.submit(
-            build_final_tree,
-            full_transcript=full_transcript,
-            lecture_title=lecture_title,
-            subject_name=subject_name,
-        )
-        summary_result = summary_task.result()
-        tree_result = tree_task.result()
+    summary_result = build_final_summary(
+        full_transcript=full_transcript,
+        lecture_title=lecture_title,
+        subject_name=subject_name,
+    )
 
     with SessionLocal() as db:
         lecture = get_lecture_by_id_sync(db, lecture_id)
@@ -438,13 +433,105 @@ def _generate_final_summary(lecture_id: UUID) -> None:
             return
         if summary_result:
             lecture.summary = summary_result
-        if tree_result:
-            lecture.mindmap_data = {"nodes": tree_result}
         db.commit()
 
     logger.info(
-        "generate_final_summary done for %s: summary_len=%d, nodes=%d",
+        "generate_final_summary done for %s: summary_len=%d",
         lecture_id,
         len(summary_result or ""),
-        len(tree_result or []),
     )
+
+
+def generate_mindmap(lecture_id: UUID) -> None:
+    with stage("generate_mindmap", lecture=short(lecture_id)):
+        try:
+            _generate_mindmap(lecture_id)
+        except Exception:
+            _set_mindmap_status(lecture_id, MindmapStatus.FAILED)
+            raise
+
+
+def _set_mindmap_status(lecture_id: UUID, value: MindmapStatus) -> None:
+    with SessionLocal() as db:
+        db.execute(
+            update(LectureModel).where(LectureModel.id == lecture_id).values(mindmap_status=value)
+        )
+        db.commit()
+
+
+def _generate_mindmap(lecture_id: UUID) -> None:
+    with SessionLocal() as db:
+        lecture = get_lecture_by_id_sync(db, lecture_id)
+        if lecture is None:
+            logger.warning("generate_mindmap: lecture %s not found", lecture_id)
+            return
+        if lecture.mindmap_data is not None:
+            logger.info("generate_mindmap: lecture %s already has a mindmap", lecture_id)
+            lecture.mindmap_status = MindmapStatus.DONE
+            db.commit()
+            return
+        if not lecture.summary:
+            logger.info("generate_mindmap: lecture %s has no summary yet", lecture_id)
+            _set_mindmap_status(lecture_id, MindmapStatus.FAILED)
+            return
+
+        summary = lecture.summary
+        lecture_title = lecture.title
+        subject_name = lecture.subject.name if lecture.subject else None
+
+    tree_result = build_final_tree(
+        summary=summary,
+        lecture_title=lecture_title,
+        subject_name=subject_name,
+    )
+    if not tree_result:
+        logger.warning("generate_mindmap: empty tree for lecture %s", lecture_id)
+        _set_mindmap_status(lecture_id, MindmapStatus.FAILED)
+        return
+
+    with SessionLocal() as db:
+        lecture = get_lecture_by_id_sync(db, lecture_id)
+        if lecture is None or lecture.mindmap_data is not None:
+            return
+        lecture.mindmap_data = {"nodes": tree_result}
+        lecture.mindmap_status = MindmapStatus.DONE
+        db.commit()
+
+    logger.info("generate_mindmap done for %s: nodes=%d", lecture_id, len(tree_result))
+
+
+async def request_mindmap(db: AsyncSession, lecture_id: UUID, user_id: UUID) -> None:
+    lecture = await get_lecture_by_id(db, lecture_id)
+    if lecture is None or lecture.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"success": False, "errors": ["Aula não encontrada."], "data": None},
+        )
+    if lecture.mindmap_data is not None:
+        return
+    if not lecture.summary:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "success": False,
+                "errors": ["O resumo da aula ainda não está pronto."],
+                "data": None,
+            },
+        )
+
+    claimed = await db.execute(
+        update(LectureModel)
+        .where(
+            LectureModel.id == lecture_id,
+            LectureModel.mindmap_status.in_((MindmapStatus.NONE, MindmapStatus.FAILED)),
+        )
+        .values(mindmap_status=MindmapStatus.REQUESTED)
+        .returning(LectureModel.id)
+    )
+    await db.commit()
+    if claimed.scalar_one_or_none() is None:
+        return
+
+    from src.features.lectures.tasks import generate_lecture_mindmap_task
+
+    cast(Any, generate_lecture_mindmap_task).delay(str(lecture_id))

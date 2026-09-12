@@ -53,6 +53,7 @@ celery_app.conf.update(
         "consolidate_audio_task": {"queue": "audios"},
         "transcribe_chunk_task": {"queue": "chunks"},
         "generate_lecture_summary_task": {"queue": "summaries"},
+        "generate_lecture_mindmap_task": {"queue": "summaries"},
     },
     broker_connection_retry_on_startup=True,
     result_serializer="json",

@@ -34,6 +34,13 @@ class LectureAudioStatus(enum.StrEnum):
     FAILED = "FAILED"
 
 
+class MindmapStatus(enum.StrEnum):
+    NONE = "NONE"
+    REQUESTED = "REQUESTED"
+    DONE = "DONE"
+    FAILED = "FAILED"
+
+
 class LectureStatus(enum.StrEnum):
     ACTIVE = "ACTIVE"
     PAUSED = "PAUSED"
@@ -79,6 +86,9 @@ class LectureModel(Base):
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     mindmap_data: Mapped[dict | None] = mapped_column(
         JSON().with_variant(JSONB(), "postgresql"), nullable=True
+    )
+    mindmap_status: Mapped[MindmapStatus] = mapped_column(
+        SQLEnum(MindmapStatus, native_enum=False), nullable=False, default=MindmapStatus.NONE
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(
