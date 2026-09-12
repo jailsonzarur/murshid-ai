@@ -2,6 +2,25 @@ from celery import Celery
 from decouple import config
 
 
+def _patch_psycopg_for_gevent() -> None:
+    """Sob gevent o psycopg2 espera o socket dentro da libpq, fora do alcance do
+    monkey-patching — sem isto ele trava o hub inteiro durante cada query."""
+    try:
+        from gevent import monkey
+    except ImportError:
+        return
+
+    if not monkey.is_module_patched("socket"):
+        return
+
+    from psycogreen.gevent import patch_psycopg
+
+    patch_psycopg()
+
+
+_patch_psycopg_for_gevent()
+
+
 def _get_bool_config(name: str, *, default: bool = False) -> bool:
     value = str(config(name, default=str(default))).strip().lower()
     return value in {"1", "true", "yes", "on"}
