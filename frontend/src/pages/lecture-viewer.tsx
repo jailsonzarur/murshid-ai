@@ -10,7 +10,7 @@ import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { EmptyState } from '../components/ui/empty-state'
 import { Icon } from '../components/ui/icon'
-import { getLecture } from '../lib/api'
+import { ApiError, generateLectureMindmap, getLecture } from '../lib/api'
 import { getAccessToken } from '../lib/auth'
 import { navigateTo } from '../lib/navigation'
 import type { LectureDetail } from '../types/lecture'
@@ -37,15 +37,17 @@ function ActionButton({
   label,
   onClick,
   primary,
+  title,
 }: {
   disabled?: boolean
-  icon: 'fileText' | 'bookOpen' | 'layers'
+  icon: 'fileText' | 'bookOpen' | 'layers' | 'sparkles'
   label: string
   onClick?: () => void
   primary?: boolean
+  title?: string
 }) {
   return (
-    <div style={{ position: 'relative' }} title={disabled ? 'Em breve' : undefined}>
+    <div style={{ position: 'relative' }} title={title}>
       <button
         className={`btn ${primary ? 'btn-primary' : 'btn-ghost'}`}
         disabled={disabled}
@@ -65,6 +67,48 @@ export function LectureViewerPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [transcriptOpen, setTranscriptOpen] = useState(false)
   const [summaryOpen, setSummaryOpen] = useState(false)
+  const [mindmapError, setMindmapError] = useState<string | undefined>()
+
+  const isBuildingMindmap = lecture?.mindmap_status === 'REQUESTED'
+
+  async function handleGenerateMindmap() {
+    const lectureId = getLectureIdFromPath()
+    if (!lectureId) return
+
+    setMindmapError(undefined)
+    setLecture((current) =>
+      current ? { ...current, mindmap_status: 'REQUESTED' } : current,
+    )
+    try {
+      await generateLectureMindmap(lectureId)
+    } catch (error) {
+      setLecture((current) => (current ? { ...current, mindmap_status: 'NONE' } : current))
+      setMindmapError(
+        error instanceof ApiError ? error.message : 'Não foi possível gerar o mapa mental.',
+      )
+    }
+  }
+
+  useEffect(() => {
+    if (!isBuildingMindmap) return
+
+    const lectureId = getLectureIdFromPath()
+    if (!lectureId) return
+
+    const intervalId = window.setInterval(() => {
+      void getLecture(lectureId)
+        .then((data) => {
+          if (data.mindmap_status === 'REQUESTED') return
+          setLecture(data)
+          if (data.mindmap_status === 'FAILED') {
+            setMindmapError('Não foi possível gerar o mapa mental. Tente novamente.')
+          }
+        })
+        .catch(() => undefined)
+    }, 3000)
+
+    return () => window.clearInterval(intervalId)
+  }, [isBuildingMindmap])
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -136,6 +180,7 @@ export function LectureViewerPage() {
           const isProcessing =
             lecture.status === 'PROCESSING' ||
             (lecture.status === 'COMPLETED' && lecture.summary === null && lecture.nodes.length === 0)
+          const showTree = lecture.nodes.length > 0 || isProcessing || isBuildingMindmap
           return (
         <>
           {/* Hero compact */}
@@ -171,7 +216,9 @@ export function LectureViewerPage() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.2fr)',
+              gridTemplateColumns: showTree
+                ? 'minmax(0, 1fr) minmax(0, 1.2fr)'
+                : 'minmax(0, 1fr)',
               gap: 18,
               marginBottom: 18,
             }}
@@ -271,27 +318,23 @@ export function LectureViewerPage() {
               </CardContent>
             </Card>
 
-            <Card style={{ height: 520, display: 'flex', flexDirection: 'column' }}>
-              <CardHeader>
-                <div>
-                  <CardTitle>Mapa de tópicos</CardTitle>
-                  <div className="card-sub">Estrutura hierárquica da aula</div>
-                </div>
-              </CardHeader>
-              <CardContent style={{ padding: 0, flex: 1, minHeight: 0 }}>
-                {lecture.nodes.length > 0 ? (
-                  <TreeViewer lectureNodes={lecture.nodes} />
-                ) : isProcessing ? (
-                  <ProcessingState label="Construindo mapa mental..." />
-                ) : (
-                  <div style={{ padding: 22 }}>
-                    <p style={{ fontSize: 13.5, color: 'var(--ink-4)' }}>
-                      O mapa mental ainda está sendo gerado.
-                    </p>
+            {showTree ? (
+              <Card style={{ height: 520, display: 'flex', flexDirection: 'column' }}>
+                <CardHeader>
+                  <div>
+                    <CardTitle>Mapa de tópicos</CardTitle>
+                    <div className="card-sub">Estrutura hierárquica da aula</div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardHeader>
+                <CardContent style={{ padding: 0, flex: 1, minHeight: 0 }}>
+                  {lecture.nodes.length > 0 ? (
+                    <TreeViewer lectureNodes={lecture.nodes} />
+                  ) : (
+                    <ProcessingState label="Construindo mapa mental..." />
+                  )}
+                </CardContent>
+              </Card>
+            ) : null}
           </div>
 
           {/* Actions */}
@@ -302,9 +345,20 @@ export function LectureViewerPage() {
               onClick={() => setTranscriptOpen(true)}
               primary
             />
-            <ActionButton disabled icon="bookOpen" label="Gerar flashcards" />
-            <ActionButton disabled icon="layers" label="Gerar prova" />
+            {lecture.nodes.length > 0 ? null : (
+              <ActionButton
+                disabled={!lecture.summary || isBuildingMindmap}
+                icon="sparkles"
+                label={isBuildingMindmap ? 'Construindo mapa mental...' : 'Gerar mapa mental'}
+                onClick={() => void handleGenerateMindmap()}
+                title={lecture.summary ? undefined : 'Disponível quando o resumo ficar pronto'}
+              />
+            )}
           </div>
+
+          {mindmapError ? (
+            <p style={{ marginTop: 10, fontSize: 12, color: 'var(--danger)' }}>{mindmapError}</p>
+          ) : null}
 
           {transcriptOpen ? (
             <TranscriptModal
