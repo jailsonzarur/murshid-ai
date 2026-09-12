@@ -26,6 +26,29 @@ from src.shared.enums.enums import UserRole  # noqa: E402
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 
+@pytest.fixture
+def sync_engine(tmp_path):
+    from sqlalchemy import create_engine
+
+    engine = create_engine(f"sqlite:///{tmp_path}/sync.db", echo=False)
+    Base.metadata.create_all(engine)
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture
+def sync_sessionmaker(sync_engine):
+    from sqlalchemy.orm import sessionmaker
+
+    return sessionmaker(sync_engine, expire_on_commit=False)
+
+
+@pytest.fixture
+def sync_session(sync_sessionmaker):
+    with sync_sessionmaker() as session:
+        yield session
+
+
 @pytest_asyncio.fixture
 async def test_engine():
     engine = create_async_engine(

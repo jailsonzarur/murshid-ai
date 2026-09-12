@@ -4,7 +4,7 @@ from uuid import UUID
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import Session, selectinload
 
 from src.features.lectures.models import (
     LectureAudioChunkModel,
@@ -25,13 +25,25 @@ async def get_lecture_by_id(db: AsyncSession, lecture_id: UUID) -> LectureModel 
     return await db.get(LectureModel, lecture_id)
 
 
+def get_lecture_by_id_sync(db: Session, lecture_id: UUID) -> LectureModel | None:
+    return db.get(LectureModel, lecture_id)
+
+
 async def get_lecture_with_segments(db: AsyncSession, lecture_id: UUID) -> LectureModel | None:
-    result = await db.execute(
+    result = await db.execute(_lecture_with_segments_query(lecture_id))
+    return result.scalar_one_or_none()
+
+
+def get_lecture_with_segments_sync(db: Session, lecture_id: UUID) -> LectureModel | None:
+    return db.execute(_lecture_with_segments_query(lecture_id)).scalar_one_or_none()
+
+
+def _lecture_with_segments_query(lecture_id: UUID):
+    return (
         select(LectureModel)
         .where(LectureModel.id == lecture_id)
         .options(selectinload(LectureModel.segments))
     )
-    return result.scalar_one_or_none()
 
 
 async def list_lectures_for_user(db: AsyncSession, user_id: UUID) -> list[LectureModel]:
@@ -50,6 +62,10 @@ async def add_audios(db: AsyncSession, audios: list[LectureAudioModel]) -> None:
 
 async def get_audio(db: AsyncSession, audio_id: UUID) -> LectureAudioModel | None:
     return await db.get(LectureAudioModel, audio_id)
+
+
+def get_audio_sync(db: Session, audio_id: UUID) -> LectureAudioModel | None:
+    return db.get(LectureAudioModel, audio_id)
 
 
 async def get_audio_with_chunks(db: AsyncSession, audio_id: UUID) -> LectureAudioModel | None:
@@ -149,6 +165,10 @@ async def claim_lecture_finalization(db: AsyncSession, lecture_id: UUID) -> Lect
 
 async def get_audio_chunk(db: AsyncSession, chunk_id: UUID) -> LectureAudioChunkModel | None:
     return await db.get(LectureAudioChunkModel, chunk_id)
+
+
+def get_audio_chunk_sync(db: Session, chunk_id: UUID) -> LectureAudioChunkModel | None:
+    return db.get(LectureAudioChunkModel, chunk_id)
 
 
 async def add_segment(db: AsyncSession, segment: LectureSegmentModel) -> None:

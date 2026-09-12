@@ -1,15 +1,31 @@
 from decouple import config
+from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase
-
-from src.config import IS_PRODUCTION
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 DATABASE_URL: str = str(config("DATABASE_URL", default="sqlite+aiosqlite:///./api_v2.db"))
+SQL_ECHO: bool = str(config("SQL_ECHO", default="false")).strip().lower() in {"1", "true", "yes", "on"}
 
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
 elif DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+
+_SYNC_SCHEMES = {
+    "postgresql+asyncpg": "postgresql+psycopg2",
+    "sqlite+aiosqlite": "sqlite",
+}
+
+
+def to_sync_url(url: str) -> str:
+    for asyncio_scheme, sync_scheme in _SYNC_SCHEMES.items():
+        if url.startswith(f"{asyncio_scheme}://"):
+            return url.replace(f"{asyncio_scheme}://", f"{sync_scheme}://", 1)
+    return url
+
+
+SYNC_DATABASE_URL: str = to_sync_url(DATABASE_URL)
 
 
 class Base(DeclarativeBase):
@@ -18,10 +34,17 @@ class Base(DeclarativeBase):
 
 engine = create_async_engine(
     DATABASE_URL,
-    echo=not IS_PRODUCTION,
+    echo=SQL_ECHO,
     pool_pre_ping=True,
 )
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+sync_engine = create_engine(
+    SYNC_DATABASE_URL,
+    echo=SQL_ECHO,
+    pool_pre_ping=True,
+)
+SessionLocal = sessionmaker(sync_engine, expire_on_commit=False)
 
 
 async def close_db() -> None:
