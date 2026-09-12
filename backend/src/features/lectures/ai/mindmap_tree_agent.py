@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TypedDict
+from typing import TypedDict, cast
 
 from decouple import config
 from openai import OpenAI
+from openai.types.shared.reasoning_effort import ReasoningEffort
 
 logger = logging.getLogger(__name__)
 
 _MODEL = str(config("MINDMAP_MODEL", default="gpt-5.6-luna")).strip()
-_REASONING = str(config("MINDMAP_REASONING", default="xhigh")).strip()
+_REASONING: ReasoningEffort = cast(
+    ReasoningEffort, str(config("MINDMAP_REASONING", default="xhigh")).strip()
+)
 
 
 class MindmapNode(TypedDict):

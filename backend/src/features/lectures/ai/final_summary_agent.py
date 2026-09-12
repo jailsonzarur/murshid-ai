@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import logging
+from typing import cast
 
 from decouple import config
 from openai import OpenAI
+from openai.types.shared.reasoning_effort import ReasoningEffort
 
 logger = logging.getLogger(__name__)
 
 _MODEL = str(config("SUMMARY_MODEL", default="gpt-5.6-luna")).strip()
-_REASONING = str(config("SUMMARY_REASONING", default="xhigh")).strip()
+_REASONING: ReasoningEffort = cast(
+    ReasoningEffort, str(config("SUMMARY_REASONING", default="xhigh")).strip()
+)
 
 _SYSTEM_PROMPT = """
 Você é um assistente educacional sênior. Sua função: a partir da transcrição
