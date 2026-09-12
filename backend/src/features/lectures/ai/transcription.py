@@ -20,8 +20,18 @@ from src.features.lectures.ai.audio_chunking import prepare_audio_for_whisper
 
 logger = logging.getLogger(__name__)
 
-TRANSCRIPTION_MODEL = str(config("TRANSCRIPTION_MODEL", default="whisper-1")).strip()
+TRANSCRIPTION_PROVIDER = str(config("TRANSCRIPTION_PROVIDER", default="openai")).strip().lower()
+TRANSCRIPTION_MODEL = str(
+    config(
+        "TRANSCRIPTION_MODEL",
+        default="@cf/openai/whisper-large-v3-turbo" if TRANSCRIPTION_PROVIDER == "cloudflare" else "whisper-1",
+    )
+).strip()
 _MODEL = TRANSCRIPTION_MODEL
+TRANSCRIPTION_LANGUAGE = str(config("TRANSCRIPTION_LANGUAGE", default="pt")).strip()
+TRANSCRIPTION_CONDITION_ON_PREVIOUS: bool = str(
+    config("TRANSCRIPTION_CONDITION_ON_PREVIOUS", default="false")
+).strip().lower() in {"1", "true", "yes", "on"}
 WHISPER_CONCURRENCY = 3
 
 _openai_client: OpenAI | None = None
@@ -32,6 +42,45 @@ def _get_openai_client() -> OpenAI:
     if _openai_client is None:
         _openai_client = OpenAI(api_key=str(config("OPENAI_API_KEY")))
     return _openai_client
+
+
+def _cloudflare_transcribe(audio_bytes: bytes, filename: str) -> str:
+    import base64
+
+    import httpx
+
+    account_id = str(config("CLOUDFLARE_ACCOUNT_ID"))
+    token = str(config("CLOUDFLARE_API_TOKEN"))
+
+    payload: dict[str, object] = {
+        "audio": base64.b64encode(audio_bytes).decode("utf-8"),
+        "language": TRANSCRIPTION_LANGUAGE,
+        "task": "transcribe",
+        "condition_on_previous_text": TRANSCRIPTION_CONDITION_ON_PREVIOUS,
+    }
+
+    response = httpx.post(
+        f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{_MODEL}",
+        headers={"Authorization": f"Bearer {token}"},
+        json=payload,
+        timeout=httpx.Timeout(300.0),
+    )
+    response.raise_for_status()
+    body = response.json()
+
+    if not body.get("success", False):
+        raise RuntimeError(f"cloudflare transcription failed: {body.get('errors')}")
+
+    text = str(body["result"].get("text", ""))
+    logger.info(
+        "transcription usage provider=cloudflare model=%s file=%s bytes=%d chars=%d cond_prev=%s",
+        _MODEL,
+        filename,
+        len(audio_bytes),
+        len(text),
+        TRANSCRIPTION_CONDITION_ON_PREVIOUS,
+    )
+    return text
 
 
 def _dump_failed_chunk(audio_bytes: bytes, filename: str) -> Path:
@@ -89,12 +138,15 @@ def transcribe_chunk_path(path: Path) -> str:
 
 
 def transcribe_audio_chunk(audio_bytes: bytes, filename: str) -> str:
+    if TRANSCRIPTION_PROVIDER == "cloudflare":
+        return _cloudflare_transcribe(audio_bytes, filename)
+
     client = _get_openai_client()
     try:
         transcription = client.audio.transcriptions.create(
             model=_MODEL,
             file=(filename, audio_bytes),
-            language="pt",
+            language=TRANSCRIPTION_LANGUAGE,
         )
         _warn_if_truncated(transcription, filename)
         return transcription.text
