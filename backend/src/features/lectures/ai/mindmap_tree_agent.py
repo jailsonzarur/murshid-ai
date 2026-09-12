@@ -9,7 +9,8 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
-_MODEL = "gpt-5.5"
+_MODEL = str(config("MINDMAP_MODEL", default="gpt-5.6-luna")).strip()
+_REASONING = str(config("MINDMAP_REASONING", default="xhigh")).strip()
 
 
 class MindmapNode(TypedDict):
@@ -78,9 +79,12 @@ _RESPONSE_SCHEMA = {
 
 
 _SYSTEM_PROMPT = """
-Você é um cartógrafo de conhecimento. A partir da transcrição COMPLETA de uma
-aula universitária, você constrói um MAPA MENTAL hierárquico com todos os
-conceitos cobertos, organizados em árvore.
+Você é um cartógrafo de conhecimento. A partir do RESUMO de uma aula
+universitária, você constrói um MAPA MENTAL hierárquico com os conceitos
+cobertos, organizados em árvore.
+
+O resumo já é uma leitura fiel da aula. Sua tarefa é **estruturar** o que está
+nele, não reinterpretar a aula nem inventar conteúdo que o resumo não traga.
 
 ## Princípios
 
@@ -126,6 +130,22 @@ JSON estrito conforme schema: `{ "nodes": [...] }`.
 _openai_client: OpenAI | None = None
 
 
+def _log_usage(response: object) -> None:
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return
+    details = getattr(usage, "completion_tokens_details", None)
+    logger.info(
+        "%s usage model=%s reasoning=%s in=%s out=%s reasoning_tokens=%s",
+        "mindmap",
+        _MODEL,
+        _REASONING,
+        getattr(usage, "prompt_tokens", "?"),
+        getattr(usage, "completion_tokens", "?"),
+        getattr(details, "reasoning_tokens", "?") if details else "?",
+    )
+
+
 def _get_openai_client() -> OpenAI:
     global _openai_client
     if _openai_client is None:
@@ -169,15 +189,15 @@ def _validate_tree_integrity(nodes: list[MindmapNode]) -> bool:
 
 
 def build_final_tree(
-    full_transcript: str,
+    summary: str,
     lecture_title: str | None,
     subject_name: str | None,
 ) -> list[MindmapNode]:
-    """Produz a árvore final do mapa mental a partir da transcrição completa.
+    """Produz a árvore final do mapa mental a partir do resumo da aula.
 
     Em caso de falha de API ou árvore inconsistente, retorna lista vazia.
     """
-    if not full_transcript.strip():
+    if not summary.strip():
         return []
 
     client = _get_openai_client()
@@ -189,14 +209,15 @@ def build_final_tree(
         header_lines.append(f"**Matéria:** {subject_name}")
     header = "\n".join(header_lines)
     user_message = (
-        f"{header}\n\n## Transcrição completa\n\n{full_transcript.strip()}"
+        f"{header}\n\n## Resumo da aula\n\n{summary.strip()}"
         if header
-        else f"## Transcrição completa\n\n{full_transcript.strip()}"
+        else f"## Resumo da aula\n\n{summary.strip()}"
     )
 
     try:
         response = client.chat.completions.create(
             model=_MODEL,
+            reasoning_effort=_REASONING,
             response_format={
                 "type": "json_schema",
                 "json_schema": {
@@ -213,6 +234,8 @@ def build_final_tree(
     except Exception:
         logger.exception("mindmap_tree_agent request failed")
         return []
+
+    _log_usage(response)
 
     content = response.choices[0].message.content
     if not content:

@@ -7,7 +7,8 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
-_MODEL = "gpt-5.5"
+_MODEL = str(config("SUMMARY_MODEL", default="gpt-5.6-luna")).strip()
+_REASONING = str(config("SUMMARY_REASONING", default="xhigh")).strip()
 
 _SYSTEM_PROMPT = """
 Você é um assistente educacional sênior. Sua função: a partir da transcrição
@@ -53,6 +54,22 @@ nem comentários sobre o processo. Pronto pra ser exibido ao aluno.
 _openai_client: OpenAI | None = None
 
 
+def _log_usage(response: object) -> None:
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return
+    details = getattr(usage, "completion_tokens_details", None)
+    logger.info(
+        "%s usage model=%s reasoning=%s in=%s out=%s reasoning_tokens=%s",
+        "summary",
+        _MODEL,
+        _REASONING,
+        getattr(usage, "prompt_tokens", "?"),
+        getattr(usage, "completion_tokens", "?"),
+        getattr(details, "reasoning_tokens", "?") if details else "?",
+    )
+
+
 def _get_openai_client() -> OpenAI:
     global _openai_client
     if _openai_client is None:
@@ -89,11 +106,13 @@ def build_final_summary(
     try:
         response = client.chat.completions.create(
             model=_MODEL,
+            reasoning_effort=_REASONING,
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {"role": "user", "content": user_message},
             ],
         )
+        _log_usage(response)
         content = response.choices[0].message.content
         return (content or "").strip()
     except Exception:
