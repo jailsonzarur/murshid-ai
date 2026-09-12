@@ -39,6 +39,7 @@ type ApiErrorPayload = {
 type ParseApiResponseOptions = {
   redirectOnUnauthorized?: boolean
   showGlobalErrors?: boolean
+  allowNullData?: boolean
 }
 
 export type ApiErrorKind = 'global' | 'validation'
@@ -139,7 +140,11 @@ async function parseApiResponse<TData>(
   response: Response,
   options: ParseApiResponseOptions = {},
 ) {
-  const { redirectOnUnauthorized = true, showGlobalErrors = true } = options
+  const {
+    redirectOnUnauthorized = true,
+    showGlobalErrors = true,
+    allowNullData = false,
+  } = options
   let payload: ApiEnvelope<TData> & ApiErrorPayload
 
   try {
@@ -160,7 +165,7 @@ async function parseApiResponse<TData>(
     throw new ApiError(extractApiErrorMessage(payload), response.status, 'global')
   }
 
-  if (!response.ok || !payload.success || payload.data === null) {
+  if (!response.ok || !payload.success || (payload.data === null && !allowNullData)) {
     const message = extractApiErrorMessage(payload)
     const error = createApiError(message, response.status)
 
@@ -171,7 +176,7 @@ async function parseApiResponse<TData>(
     throw error
   }
 
-  return payload.data
+  return payload.data as TData
 }
 
 export async function signIn(email: string, password: string) {
@@ -642,6 +647,19 @@ export async function listLectures() {
   })
 
   return parseApiResponse<LectureSummary[]>(response)
+}
+
+export async function generateLectureMindmap(lectureId: string) {
+  const authorization = requireAuth()
+
+  const response = await fetchApi(`${API_BASE_URL}/lectures/${lectureId}/mindmap`, {
+    method: 'POST',
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  return parseApiResponse<null>(response, { allowNullData: true })
 }
 
 export async function getLecture(lectureId: string) {

@@ -70,6 +70,8 @@ export type LectureSummary = {
   updated_at: string
 }
 
+export type MindmapStatus = 'NONE' | 'REQUESTED' | 'DONE' | 'FAILED'
+
 export type LectureDetail = {
   id: string
   user_id: string
@@ -78,6 +80,7 @@ export type LectureDetail = {
   status: LectureStatus
   duration_seconds: number
   summary: string | null
+  mindmap_status: MindmapStatus
   nodes: LectureNode[]
   segments: LectureSegment[]
   created_at: string
