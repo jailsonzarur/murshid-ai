@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, BinaryIO, TypedDict, cast
 from uuid import UUID
@@ -10,7 +11,8 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database import AsyncSessionLocal
+from src.core.pipeline_log import short, stage
+from src.database import SessionLocal
 from src.features.files.services.bucket_service import get_bucket_service
 from src.features.lectures.ai.final_summary_agent import build_final_summary
 from src.features.lectures.ai.live_insight_agent import generate_live_insight
@@ -28,7 +30,9 @@ from src.features.lectures.repository import (
     create_lecture,
     delete_lecture,
     get_lecture_by_id,
+    get_lecture_by_id_sync,
     get_lecture_with_segments,
+    get_lecture_with_segments_sync,
     list_lectures_for_user,
 )
 from src.features.lectures.schemas.lecture_schemas import (
@@ -390,9 +394,14 @@ async def remove_lecture(
     await db.commit()
 
 
-async def generate_final_summary(lecture_id: UUID) -> None:
-    async with AsyncSessionLocal() as db:
-        lecture = await get_lecture_with_segments(db, lecture_id)
+def generate_final_summary(lecture_id: UUID) -> None:
+    with stage("generate_summary", lecture=short(lecture_id)):
+        _generate_final_summary(lecture_id)
+
+
+def _generate_final_summary(lecture_id: UUID) -> None:
+    with SessionLocal() as db:
+        lecture = get_lecture_with_segments_sync(db, lecture_id)
         if not lecture:
             logger.warning("generate_final_summary: lecture %s not found", lecture_id)
             return
@@ -406,21 +415,24 @@ async def generate_final_summary(lecture_id: UUID) -> None:
         lecture_title = lecture.title
         subject_name = lecture.subject.name if lecture.subject else None
 
-    summary_result, tree_result = await asyncio.gather(
-        build_final_summary(
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        summary_task = pool.submit(
+            build_final_summary,
             full_transcript=full_transcript,
             lecture_title=lecture_title,
             subject_name=subject_name,
-        ),
-        build_final_tree(
+        )
+        tree_task = pool.submit(
+            build_final_tree,
             full_transcript=full_transcript,
             lecture_title=lecture_title,
             subject_name=subject_name,
-        ),
-    )
+        )
+        summary_result = summary_task.result()
+        tree_result = tree_task.result()
 
-    async with AsyncSessionLocal() as db:
-        lecture = await get_lecture_by_id(db, lecture_id)
+    with SessionLocal() as db:
+        lecture = get_lecture_by_id_sync(db, lecture_id)
         if lecture is None:
             logger.warning("generate_final_summary: lecture %s vanished mid-generation", lecture_id)
             return
@@ -428,7 +440,7 @@ async def generate_final_summary(lecture_id: UUID) -> None:
             lecture.summary = summary_result
         if tree_result:
             lecture.mindmap_data = {"nodes": tree_result}
-        await db.commit()
+        db.commit()
 
     logger.info(
         "generate_final_summary done for %s: summary_len=%d, nodes=%d",

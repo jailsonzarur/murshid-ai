@@ -9,9 +9,9 @@ from pathlib import Path
 
 from decouple import config
 from openai import (
-    AsyncOpenAI,
     AuthenticationError,
     BadRequestError,
+    OpenAI,
     PermissionDeniedError,
     RateLimitError,
 )
@@ -24,13 +24,13 @@ TRANSCRIPTION_MODEL = str(config("TRANSCRIPTION_MODEL", default="whisper-1")).st
 _MODEL = TRANSCRIPTION_MODEL
 WHISPER_CONCURRENCY = 3
 
-_openai_client: AsyncOpenAI | None = None
+_openai_client: OpenAI | None = None
 
 
-def _get_openai_client() -> AsyncOpenAI:
+def _get_openai_client() -> OpenAI:
     global _openai_client
     if _openai_client is None:
-        _openai_client = AsyncOpenAI(api_key=str(config("OPENAI_API_KEY")))
+        _openai_client = OpenAI(api_key=str(config("OPENAI_API_KEY")))
     return _openai_client
 
 
@@ -84,15 +84,14 @@ def is_permanent_transcription_error(exc: BaseException) -> bool:
     return isinstance(exc, _PERMANENT_ERRORS)
 
 
-async def transcribe_chunk_path(path: Path) -> str:
-    audio_bytes = await asyncio.to_thread(path.read_bytes)
-    return await transcribe_audio_chunk(audio_bytes, path.name)
+def transcribe_chunk_path(path: Path) -> str:
+    return transcribe_audio_chunk(path.read_bytes(), path.name)
 
 
-async def transcribe_audio_chunk(audio_bytes: bytes, filename: str) -> str:
+def transcribe_audio_chunk(audio_bytes: bytes, filename: str) -> str:
     client = _get_openai_client()
     try:
-        transcription = await client.audio.transcriptions.create(
+        transcription = client.audio.transcriptions.create(
             model=_MODEL,
             file=(filename, audio_bytes),
             language="pt",
@@ -115,8 +114,7 @@ async def transcribe_audio_file(src_path: Path, duration_hint: float | None = No
 
     async def run(chunk_path: Path) -> str:
         async with sem:
-            chunk_bytes = await asyncio.to_thread(chunk_path.read_bytes)
-            return await transcribe_audio_chunk(chunk_bytes, chunk_path.name)
+            return await asyncio.to_thread(transcribe_chunk_path, chunk_path)
 
     with tempfile.TemporaryDirectory(prefix="whisper-chunk-") as tmp:
         chunks = await prepare_audio_for_whisper(src_path, Path(tmp), duration_hint)

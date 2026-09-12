@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 from decouple import config
-from openai import AsyncOpenAI
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
@@ -50,17 +50,17 @@ Devolve APENAS o texto do resumo em markdown, sem cabeçalhos como "Resumo:"
 nem comentários sobre o processo. Pronto pra ser exibido ao aluno.
 """.strip()
 
-_openai_client: AsyncOpenAI | None = None
+_openai_client: OpenAI | None = None
 
 
-def _get_openai_client() -> AsyncOpenAI:
+def _get_openai_client() -> OpenAI:
     global _openai_client
     if _openai_client is None:
-        _openai_client = AsyncOpenAI(api_key=str(config("OPENAI_API_KEY")))
+        _openai_client = OpenAI(api_key=str(config("OPENAI_API_KEY")))
     return _openai_client
 
 
-async def build_final_summary(
+def build_final_summary(
     full_transcript: str,
     lecture_title: str | None,
     subject_name: str | None,
@@ -87,7 +87,7 @@ async def build_final_summary(
     )
 
     try:
-        response = await client.chat.completions.create(
+        response = client.chat.completions.create(
             model=_MODEL,
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},

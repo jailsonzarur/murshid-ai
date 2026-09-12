@@ -5,7 +5,7 @@ import logging
 from typing import TypedDict
 
 from decouple import config
-from openai import AsyncOpenAI
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
@@ -123,13 +123,13 @@ JSON estrito conforme schema: `{ "nodes": [...] }`.
 """.strip()
 
 
-_openai_client: AsyncOpenAI | None = None
+_openai_client: OpenAI | None = None
 
 
-def _get_openai_client() -> AsyncOpenAI:
+def _get_openai_client() -> OpenAI:
     global _openai_client
     if _openai_client is None:
-        _openai_client = AsyncOpenAI(api_key=str(config("OPENAI_API_KEY")))
+        _openai_client = OpenAI(api_key=str(config("OPENAI_API_KEY")))
     return _openai_client
 
 
@@ -168,7 +168,7 @@ def _validate_tree_integrity(nodes: list[MindmapNode]) -> bool:
     return True
 
 
-async def build_final_tree(
+def build_final_tree(
     full_transcript: str,
     lecture_title: str | None,
     subject_name: str | None,
@@ -195,7 +195,7 @@ async def build_final_tree(
     )
 
     try:
-        response = await client.chat.completions.create(
+        response = client.chat.completions.create(
             model=_MODEL,
             response_format={
                 "type": "json_schema",

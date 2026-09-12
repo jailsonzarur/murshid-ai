@@ -8,7 +8,8 @@ from uuid import UUID
 
 from sqlalchemy.dialects.postgresql import insert
 
-from src.database import AsyncSessionLocal
+from src.core.pipeline_log import short, stage
+from src.database import AsyncSessionLocal, SessionLocal
 from src.features.files.services.bucket_service import get_bucket_service
 from src.features.lectures.ai.audio_chunking import (
     prepare_audio_for_whisper,
@@ -26,7 +27,8 @@ from src.features.lectures.repository import (
     claim_audio_for_consolidation,
     claim_lecture_finalization,
     get_audio,
-    get_audio_chunk,
+    get_audio_chunk_sync,
+    get_audio_sync,
     get_audio_with_chunks,
     list_audio_ids_for_lecture,
     sum_audio_duration_before,
@@ -35,9 +37,14 @@ from src.features.lectures.repository import (
 logger = logging.getLogger(__name__)
 
 
-async def transcribe_chunk(chunk_id: UUID) -> UUID | None:
-    async with AsyncSessionLocal() as db:
-        chunk = await get_audio_chunk(db, chunk_id)
+def transcribe_chunk(chunk_id: UUID) -> UUID | None:
+    with stage("transcribe_chunk", chunk=short(chunk_id)):
+        return _transcribe_chunk(chunk_id)
+
+
+def _transcribe_chunk(chunk_id: UUID) -> UUID | None:
+    with SessionLocal() as db:
+        chunk = get_audio_chunk_sync(db, chunk_id)
         if chunk is None:
             logger.warning("transcribe_chunk: chunk %s not found", chunk_id)
             return None
@@ -47,85 +54,92 @@ async def transcribe_chunk(chunk_id: UUID) -> UUID | None:
         audio_id = chunk.audio_id
         object_key = chunk.object_key
         chunk.attempts += 1
-        await db.commit()
+        db.commit()
 
     try:
         with tempfile.TemporaryDirectory(prefix="whisper-chunk-") as tmp:
             path = Path(tmp) / object_key.rsplit("/", 1)[-1]
             bucket = get_bucket_service()
-            await asyncio.to_thread(bucket.download_to, object_key, path)
-            transcript = await transcribe_chunk_path(path)
+            bucket.download_to(object_key, path)
+            transcript = transcribe_chunk_path(path)
     except Exception as exc:
-        await _record_failure(chunk_id, exc)
+        _record_failure(chunk_id, exc)
         raise
 
-    async with AsyncSessionLocal() as db:
-        chunk = await get_audio_chunk(db, chunk_id)
+    with SessionLocal() as db:
+        chunk = get_audio_chunk_sync(db, chunk_id)
         if chunk is None:
             return audio_id
         if chunk.transcript is None:
             chunk.transcript = transcript
             chunk.last_error = None
-            await db.commit()
+            db.commit()
 
     return audio_id
 
 
-async def _record_failure(chunk_id: UUID, exc: BaseException) -> None:
+def _record_failure(chunk_id: UUID, exc: BaseException) -> None:
     try:
-        async with AsyncSessionLocal() as db:
-            chunk = await get_audio_chunk(db, chunk_id)
+        with SessionLocal() as db:
+            chunk = get_audio_chunk_sync(db, chunk_id)
             if chunk is None:
                 return
             chunk.last_error = f"{type(exc).__name__}: {exc}"[:2000]
-            await db.commit()
+            db.commit()
     except Exception:
         logger.exception("transcribe_chunk: could not record failure for chunk %s", chunk_id)
 
 
 async def start_import(lecture_id: UUID) -> list[UUID]:
-    async with AsyncSessionLocal() as db:
-        return await list_audio_ids_for_lecture(db, lecture_id)
+    with stage("start_import", lecture=short(lecture_id)):
+        async with AsyncSessionLocal() as db:
+            return await list_audio_ids_for_lecture(db, lecture_id)
 
 
-async def lecture_id_of_audio(audio_id: UUID) -> UUID | None:
-    async with AsyncSessionLocal() as db:
-        audio = await get_audio(db, audio_id)
+def lecture_id_of_audio(audio_id: UUID) -> UUID | None:
+    with SessionLocal() as db:
+        audio = get_audio_sync(db, audio_id)
         return None if audio is None else audio.lecture_id
 
 
 async def finalize_lecture(lecture_id: UUID) -> LectureStatus | None:
-    async with AsyncSessionLocal() as db:
-        outcome = await claim_lecture_finalization(db, lecture_id)
-        if outcome is None:
-            return None
-        await db.commit()
+    with stage("finalize_lecture", lecture=short(lecture_id)):
+        async with AsyncSessionLocal() as db:
+            outcome = await claim_lecture_finalization(db, lecture_id)
+            if outcome is None:
+                return None
+            await db.commit()
 
-    return outcome
+        return outcome
 
 
-async def mark_audio_failed(audio_id: UUID, reason: str) -> None:
-    async with AsyncSessionLocal() as db:
-        audio = await get_audio(db, audio_id)
+def mark_audio_failed(audio_id: UUID, reason: str) -> None:
+    with SessionLocal() as db:
+        audio = get_audio_sync(db, audio_id)
         if audio is None or audio.status is LectureAudioStatus.DONE:
             return
         audio.status = LectureAudioStatus.FAILED
         audio.last_error = reason[:2000]
-        await db.commit()
+        db.commit()
 
 
-async def fail_audio_of_chunk(chunk_id: UUID, reason: str) -> UUID | None:
-    async with AsyncSessionLocal() as db:
-        chunk = await get_audio_chunk(db, chunk_id)
+def fail_audio_of_chunk(chunk_id: UUID, reason: str) -> UUID | None:
+    with SessionLocal() as db:
+        chunk = get_audio_chunk_sync(db, chunk_id)
         if chunk is None:
             return None
         audio_id = chunk.audio_id
 
-    await mark_audio_failed(audio_id, reason)
-    return await lecture_id_of_audio(audio_id)
+    mark_audio_failed(audio_id, reason)
+    return lecture_id_of_audio(audio_id)
 
 
 async def chunk_audio(audio_id: UUID) -> list[UUID]:
+    with stage("chunk_audio", audio=short(audio_id)):
+        return await _chunk_audio(audio_id)
+
+
+async def _chunk_audio(audio_id: UUID) -> list[UUID]:
     async with AsyncSessionLocal() as db:
         audio = await get_audio(db, audio_id)
         if audio is None:
@@ -200,6 +214,11 @@ def _upload_chunk(bucket, path: Path, key: str) -> None:
 
 
 async def consolidate_audio(audio_id: UUID) -> UUID | None:
+    with stage("consolidate_audio", audio=short(audio_id)):
+        return await _consolidate_audio(audio_id)
+
+
+async def _consolidate_audio(audio_id: UUID) -> UUID | None:
     async with AsyncSessionLocal() as db:
         if not await claim_audio_for_consolidation(db, audio_id):
             return None

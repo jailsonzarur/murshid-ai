@@ -18,15 +18,15 @@ def _backoff(retries: int) -> int:
     return 10 * 2**retries
 
 
-async def _run_generate_summary(lecture_id: str) -> None:
+def _run_generate_summary(lecture_id: str) -> None:
     from src.features.lectures.services.lecture_service import generate_final_summary
 
-    await generate_final_summary(UUID(lecture_id))
+    generate_final_summary(UUID(lecture_id))
 
 
 @celery_app.task(name="generate_lecture_summary_task")
 def generate_lecture_summary_task(lecture_id: str) -> None:
-    run_async(_run_generate_summary(lecture_id))
+    _run_generate_summary(lecture_id)
 
 
 def dispatch_import_lecture(lecture_id: UUID) -> None:
@@ -73,31 +73,31 @@ def chunk_audio_task(self, audio_id: str) -> None:
             raise self.retry(countdown=_backoff(self.request.retries))
         except MaxRetriesExceededError:
             logger.exception("chunk_audio_task: gave up on audio=%s", audio_id)
-            run_async(mark_audio_failed(UUID(audio_id), reason))
-            _finalize(run_async(lecture_id_of_audio(UUID(audio_id))))
+            mark_audio_failed(UUID(audio_id), reason)
+            _finalize(lecture_id_of_audio(UUID(audio_id)))
             return
 
     for chunk_id in chunk_ids:
         cast(Any, transcribe_chunk_task).delay(str(chunk_id))
 
 
-async def _run_transcribe_chunk(task, chunk_id: str) -> None:
+def _run_transcribe_chunk(task, chunk_id: str) -> None:
     from src.features.lectures.ai.transcription import is_permanent_transcription_error
     from src.features.lectures.services.import_pipeline import fail_audio_of_chunk, transcribe_chunk
 
     try:
-        audio_id = await transcribe_chunk(UUID(chunk_id))
+        audio_id = transcribe_chunk(UUID(chunk_id))
     except Exception as exc:
         reason = f"{type(exc).__name__}: {exc}"
         if is_permanent_transcription_error(exc):
             logger.error("transcribe_chunk_task: permanent failure on chunk=%s: %s", chunk_id, reason)
-            _finalize(await fail_audio_of_chunk(UUID(chunk_id), reason))
+            _finalize(fail_audio_of_chunk(UUID(chunk_id), reason))
             return
         try:
             raise task.retry(countdown=_backoff(task.request.retries))
         except MaxRetriesExceededError:
             logger.exception("transcribe_chunk_task: gave up on chunk=%s", chunk_id)
-            _finalize(await fail_audio_of_chunk(UUID(chunk_id), reason))
+            _finalize(fail_audio_of_chunk(UUID(chunk_id), reason))
             return
 
     if audio_id is not None:
@@ -106,7 +106,7 @@ async def _run_transcribe_chunk(task, chunk_id: str) -> None:
 
 @celery_app.task(bind=True, name="transcribe_chunk_task", max_retries=MAX_RETRIES)
 def transcribe_chunk_task(self, chunk_id: str) -> None:
-    run_async(_run_transcribe_chunk(self, chunk_id))
+    _run_transcribe_chunk(self, chunk_id)
 
 
 @celery_app.task(name="consolidate_audio_task")

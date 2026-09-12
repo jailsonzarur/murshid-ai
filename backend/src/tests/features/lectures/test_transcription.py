@@ -13,7 +13,7 @@ async def test_chunks_are_read_from_disk_and_joined_in_order(tmp_path, monkeypat
     async def fake_prepare(src_path, out_dir, duration_hint=None):
         return chunks
 
-    async def fake_transcribe(audio_bytes, filename):
+    def fake_transcribe(audio_bytes, filename):
         return audio_bytes.decode()
 
     monkeypatch.setattr(transcription, "prepare_audio_for_whisper", fake_prepare)
@@ -32,7 +32,7 @@ async def test_a_single_chunk_is_transcribed_directly(tmp_path, monkeypatch):
     async def fake_prepare(src_path, out_dir, duration_hint=None):
         return [chunk]
 
-    async def fake_transcribe(audio_bytes, filename):
+    def fake_transcribe(audio_bytes, filename):
         seen["filename"] = filename
         return audio_bytes.decode()
 
