@@ -52,6 +52,28 @@ class TestReadingOrder:
         assert elements[1].page == 7
 
 
+class TestWhitespace:
+    def test_non_breaking_spaces_become_plain_spaces(self):
+        blocks = [_text_block("Ahmed\xa0AOA,\xa0De\xa0Hoog\xa0GS.", (0, 10, 300, 40))]
+
+        line = _page_elements(blocks, blocks, page=1, page_area=PAGE_AREA)[0]
+
+        assert line.text == "Ahmed AOA, De Hoog GS."
+
+    def test_runs_of_spaces_collapse(self):
+        blocks = [_text_block("FIGURA   2-1     Parede", (0, 10, 300, 40))]
+
+        line = _page_elements(blocks, blocks, page=1, page_area=PAGE_AREA)[0]
+
+        assert line.text == "FIGURA 2-1 Parede"
+
+    def test_a_caption_is_normalised_too(self):
+        imagem = (0.0, 100.0, 260.0, 400.0)
+        blocks = [_text_block("FIGURA\xa02-1  Distribuicao", (0, 410, 300, 430))]
+
+        assert _caption(imagem, blocks) == "FIGURA 2-1 Distribuicao"
+
+
 class TestLines:
     def test_the_size_and_weight_come_from_the_line(self):
         blocks = [_text_block("CAPÍTULO 1", (0, 10, 300, 40), size=29.0, bold=True)]

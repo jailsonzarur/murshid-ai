@@ -14,6 +14,7 @@ CAPTION_MAX_GAP = 60.0
 CAPTION_PATTERN = re.compile(r"^\s*(figuras?|fig\.|tabelas?|quadros?|box|gr[áa]fico)\s*[\d IVXivx]", re.I)
 
 _BOLD_FLAG = 1 << 4
+_RUN_OF_SPACES = re.compile(r"[ \t\xa0\u2000-\u200a\u202f\u205f]+")
 
 
 @dataclass(frozen=True)
@@ -71,7 +72,7 @@ def _page_elements(
 
         for line in block.get("lines", []):
             spans = line.get("spans", [])
-            text = "".join(span["text"] for span in spans).strip()
+            text = _normalise("".join(span["text"] for span in spans))
             if not text:
                 continue
             first = spans[0]
@@ -85,6 +86,12 @@ def _page_elements(
             )
 
     return elements
+
+
+def _normalise(text: str) -> str:
+    """O Murray usa espaço não-quebrável em 12% do texto. Cada um vira um token
+    próprio e ainda impede que as palavras vizinhas se juntem."""
+    return _RUN_OF_SPACES.sub(" ", text).strip()
 
 
 def _figure(
@@ -111,10 +118,12 @@ def _caption(image_bbox: tuple[float, ...], text_blocks: list[dict[str, Any]]) -
             continue
         if tx0 >= ix1 or tx1 <= ix0:
             continue
-        text = " ".join(
-            "".join(span["text"] for span in line.get("spans", []))
-            for line in block.get("lines", [])
-        ).strip()
+        text = _normalise(
+            " ".join(
+                "".join(span["text"] for span in line.get("spans", []))
+                for line in block.get("lines", [])
+            )
+        )
         if CAPTION_PATTERN.match(text):
             return text
 
