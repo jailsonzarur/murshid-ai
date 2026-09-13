@@ -75,29 +75,31 @@ que também rodam transcodificação de áudio.
 Criar a fila `documents`, rotear a task, adicionar `worker_documents` no
 `supervisord.conf` (prefork, concorrência 2). Prefork porque extração de PDF é CPU.
 
-**0.2 Comprimir o PDF na ingestão.** `MAX_DOCUMENT_BYTES` é 50 MB e o Murray tem 355 MB —
-hoje não sobe.
+**0.2 Aceitar arquivos grandes.** `MAX_DOCUMENT_BYTES` era 50 MB e o Murray tem 355 MB.
+Subiu para 500 MB, no backend e no modal do frontend, que validava antes de enviar.
 
-Medido no Murray: **98% do arquivo são imagens** — 722 imagens somando 346 MB, contra 4 MB
-de texto. Compressão sem perda não resolve (355,1 → 355,4 MB), porque elas já estão
-comprimidas. Recomprimir resolve:
+**Compressão: tentada e removida.** 98% do Murray são imagens (346 MB contra 4 MB de texto),
+e recomprimi-las levaria o arquivo a ~55 MB. Mas o `rewrite_images` do PyMuPDF **aborta o
+processo com SIGSEGV** acima de um limiar de imagens por chamada:
 
 ```
-imagens em no máximo 1600px, JPEG q80
-346 MB  →  50 MB  (15%)  em 26s
+ 50 paginas  ok        100 paginas  SIGSEGV       documento inteiro  SIGSEGV
 ```
 
-O PDF inteiro cairia para ~59 MB. Roda com o PyMuPDF que já está no projeto, na mesma task
-que já baixa o arquivo. O limite sobe para aceitar o upload original, e o que se guarda é
-o comprimido.
+Processar em lotes no mesmo processo também quebra — o estado acumula entre chamadas. Só
+funcionaria com um processo novo por lote, 35 deles para o Murray, mais um merge.
 
-Ressalva: medido só no Murray. Livro escaneado (Steve Jobs) pode degradar mais, porque ali
-a imagem **é** o texto. Medir nele antes de aplicar a todos.
+O ghostscript resolve (355 MB → 55,7 MB, texto idêntico, sem crash), mas leva **532s**
+contra os 31s do PyMuPDF, e pesa +24 MB na imagem.
+
+Decidido não comprimir por enquanto: 355 MB custam $0,005/mês no R2 e $0,053/mês no volume
+do Railway. É otimização de custo futuro, não necessidade. Se o volume justificar, o
+caminho é tentar PyMuPDF e cair para ghostscript no SIGSEGV.
 
 **Armazenamento — decidido ficar no MinIO por enquanto.** O R2 é 10× mais barato por GB
 ($0,015 contra $0,15 do volume do Railway) e tem egress zero, e a migração é quase só
 variável de ambiente porque o `bucket_service.py` já aceita `BUCKET_ENDPOINT_URL` e chaves
-genéricas. Fica registrado para depois; a compressão sozinha já corta 6× o volume.
+genéricas.
 
 ## Passo 1 — pgvector — CONCLUÍDO
 

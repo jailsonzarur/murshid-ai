@@ -141,7 +141,6 @@ async def ingest_document(document_id: UUID) -> None:
     """Gera a capa e conta as páginas. Roda no worker, fora do ciclo da request."""
     from src.database import AsyncSessionLocal
     from src.features.subjects.ai.document_ingestion import build_preview
-    from src.features.subjects.ai.pdf_compression import compress_pdf
     from src.features.subjects.models import SubjectDocumentStatus
     from src.features.subjects.repository import get_subject_document_by_id
 
@@ -164,29 +163,9 @@ async def ingest_document(document_id: UUID) -> None:
         subject_id = document.subject_id
 
     bucket = get_bucket_service()
-    compressed_key: str | None = None
-    compressed_size: int | None = None
-
     with tempfile.TemporaryDirectory(prefix="subject-doc-") as tmp:
         source_path = Path(tmp) / original_name
         await asyncio.to_thread(bucket.download_to, object_key, source_path)
-
-        if _is_pdf(mime_type, original_name):
-            smaller_path = Path(tmp) / f"compressed-{original_name}"
-            if await asyncio.to_thread(compress_pdf, source_path, smaller_path):
-                with smaller_path.open("rb") as stream:
-                    upload = await asyncio.to_thread(
-                        bucket.upload_stream,
-                        stream,
-                        original_name,
-                        length=smaller_path.stat().st_size,
-                        folder=f"subjects/{subject_id}/documents",
-                        content_type="application/pdf",
-                    )
-                compressed_key = upload.key
-                compressed_size = smaller_path.stat().st_size
-                source_path = smaller_path
-
         preview = await asyncio.to_thread(build_preview, source_path, mime_type)
 
         stem = Path(original_name).stem
@@ -200,7 +179,7 @@ async def ingest_document(document_id: UUID) -> None:
     async with AsyncSessionLocal() as db:
         document = await get_subject_document_by_id(db, document_id)
         if document is None:
-            for key in (thumbnail_key, icon_key, compressed_key):
+            for key in (thumbnail_key, icon_key):
                 if key:
                     await asyncio.to_thread(bucket.delete, key)
             return
@@ -208,32 +187,14 @@ async def ingest_document(document_id: UUID) -> None:
         document.page_count = preview.page_count
         document.thumbnail_key = thumbnail_key
         document.icon_key = icon_key
-        if compressed_key:
-            document.object_key = compressed_key
-            document.size_bytes = compressed_size or document.size_bytes
         document.status = SubjectDocumentStatus.READY
         await db.commit()
 
-    if compressed_key:
-        try:
-            await asyncio.to_thread(bucket.delete, object_key)
-        except Exception:
-            logger.exception("ingest_document: failed to delete original %s", object_key)
-
-    logger.info(
-        "ingest_document done for %s: pages=%s compressed=%s",
-        document_id,
-        preview.page_count,
-        bool(compressed_key),
-    )
+    logger.info("ingest_document done for %s: pages=%s", document_id, preview.page_count)
 
     from src.features.subjects.tasks import dispatch_index_document
 
     dispatch_index_document(document_id)
-
-
-def _is_pdf(mime_type: str, filename: str) -> bool:
-    return mime_type == "application/pdf" or filename.lower().endswith(".pdf")
 
 
 async def mark_document_failed(document_id: UUID, message: str) -> None:

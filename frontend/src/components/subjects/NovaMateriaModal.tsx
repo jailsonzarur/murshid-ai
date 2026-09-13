@@ -9,7 +9,7 @@ import { Input } from '../ui/input'
 export const NOVA_MATERIA_LAYOUT_ID = 'nova-materia'
 
 const MAX_FILES = 10
-const MAX_FILE_BYTES = 50 * 1024 * 1024
+const MAX_FILE_BYTES = 500 * 1024 * 1024
 const ACCEPT_TYPES = '.pdf,.txt,.md,application/pdf,text/plain,text/markdown'
 
 type NovaMateriaModalProps = {
@@ -44,7 +44,7 @@ export function NovaMateriaModal({ isOpen, onClose, onCreated }: NovaMateriaModa
 
     for (const file of Array.from(filesToAdd)) {
       if (file.size > MAX_FILE_BYTES) {
-        errors.push(`${file.name} excede o limite de 50 MB.`)
+        errors.push(`${file.name} excede o limite de 500 MB.`)
         continue
       }
       accepted.push({ id: `e${++entryCounterRef.current}`, file })
@@ -125,7 +125,7 @@ export function NovaMateriaModal({ isOpen, onClose, onCreated }: NovaMateriaModa
             <div>
               <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Nova matéria</h2>
               <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'var(--ink-4)' }}>
-                Anexe a bibliografia da matéria para enriquecer os resumos das aulas. Limite de 50 MB por
+                Anexe a bibliografia da matéria para enriquecer os resumos das aulas. Limite de 500 MB por
                 arquivo.
               </p>
             </div>
@@ -200,7 +200,7 @@ export function NovaMateriaModal({ isOpen, onClose, onCreated }: NovaMateriaModa
                 >
                   <Icon name="upload" size={18} />
                   <p style={{ margin: '6px 0 0' }}>Clique para selecionar livros e artigos</p>
-                  <p style={{ margin: '4px 0 0', fontSize: 11.5 }}>pdf, txt, md · até 50 MB cada</p>
+                  <p style={{ margin: '4px 0 0', fontSize: 11.5 }}>pdf, txt, md · até 500 MB cada</p>
                 </div>
               ) : (
                 <div
