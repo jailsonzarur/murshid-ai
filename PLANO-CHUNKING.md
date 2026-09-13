@@ -99,15 +99,39 @@ a imagem **é** o texto. Medir nele antes de aplicar a todos.
 variável de ambiente porque o `bucket_service.py` já aceita `BUCKET_ENDPOINT_URL` e chaves
 genéricas. Fica registrado para depois; a compressão sozinha já corta 6× o volume.
 
-## Passo 1 — pgvector
+## Passo 1 — pgvector — CONCLUÍDO
 
-Trocar `postgres:16-alpine` por `pgvector/pgvector:pg16`. Mesma versão do Postgres, mesmo
-diretório de dados, o volume continua valendo — **mas fazer backup antes**, é troca de
-imagem em banco com dado real.
+Trocar `postgres:16-alpine` por `pgvector/pgvector:pg16` e criar a extensão.
 
-Migração: `CREATE EXTENSION IF NOT EXISTS vector;`
+**Não reaproveitar o volume.** A premissa original era "mesma versão do Postgres, mesmo
+diretório de dados, o volume continua valendo". Está errada: as imagens diferem em libc —
+Alpine usa musl, a pgvector usa glibc — e trocar a libc por baixo de um diretório de dados
+pode corromper silenciosamente índices em colunas de texto, por deriva de collation.
 
-Verificação: `SELECT '[1,2,3]'::vector;` responde sem erro.
+O procedimento correto é dump, volume novo, restore:
+
+```
+pg_dump -> verificar contagens no dump -> volume novo -> restore -> conferir contagens
+```
+
+O volume antigo fica como rollback.
+
+Migração `9c2f5d81be74`: `CREATE EXTENSION IF NOT EXISTS vector`
+
+Verificação:
+
+```sql
+SELECT '[1,2,3]'::vector;                          -- [1,2,3]
+SELECT '[1,2,3]'::vector <=> '[1,2,3]'::vector;    -- 0
+SELECT '[1,0]'::vector   <=> '[0,1]'::vector;      -- 1.0000
+```
+
+Local: Postgres 16.15, vector 0.8.6, dados restaurados sem perda (3 usuários, 113 matérias,
+10 documentos, 50 aulas, 145 segmentos).
+
+**Pendente em produção:** confirmar que o Postgres do Railway tem a extensão `vector`
+disponível. Se não tiver, a migração falha no deploy. O Railway oferece um template de
+Postgres com pgvector; um Postgres comum não traz a extensão.
 
 ## Passo 2 — Tabela de chunks
 
