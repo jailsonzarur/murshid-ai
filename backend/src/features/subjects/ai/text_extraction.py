@@ -28,7 +28,7 @@ class Line:
 class Figure:
     page: int
     bbox: tuple[float, float, float, float]
-    caption: str | None
+    caption: str
 
 
 Element = Line | Figure
@@ -96,7 +96,10 @@ def _figure(
         return None
     if page_area and (width * height) / page_area > MAX_PAGE_COVERAGE:
         return None
-    return Figure(page=page, bbox=(x0, y0, x1, y1), caption=_caption(block["bbox"], text_blocks))
+    caption = _caption(block["bbox"], text_blocks)
+    if caption is None:
+        return None
+    return Figure(page=page, bbox=(x0, y0, x1, y1), caption=caption)
 
 
 def _caption(image_bbox: tuple[float, ...], text_blocks: list[dict[str, Any]]) -> str | None:

@@ -78,13 +78,19 @@ class TestFigureFiltering:
 
         assert _page_elements(blocks, [], page=1, page_area=PAGE_AREA) == []
 
-    def test_a_figure_sized_image_is_kept(self):
+    def test_a_figure_sized_image_with_a_caption_is_kept(self):
+        imagem = _image_block((50, 50, 400, 500))
+        legenda = _text_block("FIGURA 3-2 Ciclo de vida", (50, 510, 400, 530))
+
+        elements = _page_elements([imagem, legenda], [legenda], page=1, page_area=PAGE_AREA)
+
+        assert isinstance(elements[0], Figure)
+        assert elements[0].caption == "FIGURA 3-2 Ciclo de vida"
+
+    def test_an_image_without_a_caption_is_dropped(self):
         blocks = [_image_block((50, 50, 400, 500))]
 
-        elements = _page_elements(blocks, [], page=1, page_area=PAGE_AREA)
-
-        assert len(elements) == 1
-        assert isinstance(elements[0], Figure)
+        assert _page_elements(blocks, [], page=1, page_area=PAGE_AREA) == []
 
 
 class TestCaption:
