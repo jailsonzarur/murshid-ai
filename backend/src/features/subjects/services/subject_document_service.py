@@ -227,6 +227,10 @@ async def ingest_document(document_id: UUID) -> None:
         bool(compressed_key),
     )
 
+    from src.features.subjects.tasks import dispatch_index_document
+
+    dispatch_index_document(document_id)
+
 
 def _is_pdf(mime_type: str, filename: str) -> bool:
     return mime_type == "application/pdf" or filename.lower().endswith(".pdf")
