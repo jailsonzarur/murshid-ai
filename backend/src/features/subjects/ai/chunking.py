@@ -81,24 +81,36 @@ def _spans(text: str, guards: list[tuple[int, int]]) -> list[tuple[int, int]]:
     start = 0
 
     while start < total:
-        end = _cut(start, boundaries, guards, total)
+        end = _cut(text, start, boundaries, guards, total)
         spans.append((start, end))
         if end >= total:
             break
-        start = max(end - OVERLAP_CHARS, start + 1)
+        start = _word_start(text, max(end - OVERLAP_CHARS, start + 1))
 
     return spans
 
 
+def _word_start(text: str, offset: int) -> int:
+    while offset < len(text) and not text[offset].isspace():
+        offset += 1
+    return offset + 1
+
+
+def _word_end(text: str, offset: int) -> int:
+    while offset > 0 and not text[offset - 1].isspace():
+        offset -= 1
+    return offset
+
+
 def _cut(
-    start: int, boundaries: list[int], guards: list[tuple[int, int]], total: int
+    text: str, start: int, boundaries: list[int], guards: list[tuple[int, int]], total: int
 ) -> int:
     limit = start + TARGET_CHARS
     if total - limit < MIN_TAIL_CHARS:
         return total
 
     candidates = [end for end in boundaries if start + MIN_TAIL_CHARS < end <= limit]
-    end = candidates[-1] if candidates else limit
+    end = candidates[-1] if candidates else _word_end(text, limit)
     return _clear_of_captions(end, guards, total)
 
 

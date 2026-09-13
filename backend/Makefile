@@ -1,4 +1,4 @@
-.PHONY: help install dev start worker test coverage lint typecheck format check clean docker-up docker-down up down generate history current
+.PHONY: help install dev start worker test coverage lint typecheck format check clean docker-up docker-down up down generate history current inspect
 
 PORT ?= 8002
 n ?= auto
@@ -27,6 +27,9 @@ help:
 	@echo "    make lint           Roda ruff"
 	@echo "    make typecheck      Roda basedpyright"
 	@echo "    make check          Roda lint e testes"
+	@echo ""
+	@echo "  Materias"
+	@echo "    make inspect doc=\"titulo\"  Inspeciona o chunking de um documento"
 	@echo ""
 
 install:
@@ -83,3 +86,6 @@ clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
 	rm -rf .cache .coverage htmlcov src/tests/.coverage src/tests/htmlcov
+
+inspect:
+	uv run python -m src.features.subjects.inspect_index "$(doc)"
