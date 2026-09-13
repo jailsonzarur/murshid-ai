@@ -101,7 +101,13 @@ genéricas. Fica registrado para depois; a compressão sozinha já corta 6× o v
 
 ## Passo 1 — pgvector — CONCLUÍDO
 
-Trocar `postgres:16-alpine` por `pgvector/pgvector:pg16` e criar a extensão.
+Trocar `postgres:16-alpine` por `pgvector/pgvector:pg18` e criar a extensão.
+
+**Casar a versão com produção.** O Railway roda `pgvector/pgvector:pg18`; ficar em pg16
+no local seria duas versões maiores de diferença. O pgvector é 0.8.6 nos dois.
+
+**Em 18+ o volume monta em `/var/lib/postgresql`, não em `/var/lib/postgresql/data`.**
+A imagem passou a usar diretórios por versão maior e recusa subir com o caminho antigo.
 
 **Não reaproveitar o volume.** A premissa original era "mesma versão do Postgres, mesmo
 diretório de dados, o volume continua valendo". Está errada: as imagens diferem em libc —
@@ -126,12 +132,10 @@ SELECT '[1,2,3]'::vector <=> '[1,2,3]'::vector;    -- 0
 SELECT '[1,0]'::vector   <=> '[0,1]'::vector;      -- 1.0000
 ```
 
-Local: Postgres 16.15, vector 0.8.6, dados restaurados sem perda (3 usuários, 113 matérias,
-10 documentos, 50 aulas, 145 segmentos).
+Local: Postgres 18.6, vector 0.8.6, dados restaurados sem perda (3 usuários, 113 matérias,
+10 documentos, 50 aulas, 145 segmentos, 13 áudios).
 
-**Pendente em produção:** confirmar que o Postgres do Railway tem a extensão `vector`
-disponível. Se não tiver, a migração falha no deploy. O Railway oferece um template de
-Postgres com pgvector; um Postgres comum não traz a extensão.
+Produção confirmada: Railway em `pgvector/pgvector:pg18`, mesma extensão 0.8.6.
 
 ## Passo 2 — Tabela de chunks
 
