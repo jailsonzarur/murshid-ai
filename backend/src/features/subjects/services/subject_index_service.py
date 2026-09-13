@@ -5,8 +5,6 @@ import tempfile
 from pathlib import Path
 from uuid import UUID
 
-from sqlalchemy import delete, update
-
 from src.core.pipeline_log import short, stage
 from src.database import SessionLocal
 from src.features.files.services.bucket_service import get_bucket_service
@@ -18,30 +16,26 @@ from src.features.subjects.models import (
     SubjectDocumentChunkModel,
     SubjectDocumentImageModel,
     SubjectDocumentIndexStatus,
-    SubjectDocumentModel,
+)
+from src.features.subjects.repository import (
+    add_document_chunk_sync,
+    add_document_image_sync,
+    claim_document_for_indexing_sync,
+    clear_document_index_sync,
+    get_subject_document_by_id_sync,
+    set_document_index_status_sync,
 )
 
 logger = logging.getLogger(__name__)
 
-RECLAIMABLE = (SubjectDocumentIndexStatus.NONE, SubjectDocumentIndexStatus.FAILED)
-
 
 def claim_document_for_indexing(document_id: UUID) -> bool:
-    """Move NONE ou FAILED para REQUESTED numa única instrução. Só quem ganha a
-    linha despacha a task, então clicar de novo não duplica trabalho."""
+    """Só quem ganha a linha despacha a task, então clicar de novo ou reprocessar
+    um upload não duplica trabalho."""
     with SessionLocal() as db:
-        claimed = db.execute(
-            update(SubjectDocumentModel)
-            .where(
-                SubjectDocumentModel.id == document_id,
-                SubjectDocumentModel.index_status.in_(RECLAIMABLE),
-            )
-            .values(index_status=SubjectDocumentIndexStatus.REQUESTED)
-            .returning(SubjectDocumentModel.id)
-        )
-        found = claimed.scalar_one_or_none()
+        claimed = claim_document_for_indexing_sync(db, document_id)
         db.commit()
-        return found is not None
+        return claimed
 
 
 def index_document(document_id: UUID) -> None:
@@ -51,7 +45,7 @@ def index_document(document_id: UUID) -> None:
 
 def _index_document(document_id: UUID) -> None:
     with SessionLocal() as db:
-        document = db.get(SubjectDocumentModel, document_id)
+        document = get_subject_document_by_id_sync(db, document_id)
         if document is None:
             logger.warning("index_document: document %s not found", document_id)
             return
@@ -69,7 +63,7 @@ def _index_document(document_id: UUID) -> None:
     chunks = _build_chunks(object_key, original_name, title)
     if not chunks:
         logger.warning("index_document: no chunks for %s", document_id)
-        _set_status(document_id, SubjectDocumentIndexStatus.FAILED)
+        set_failed(document_id)
         return
 
     vectors = embed_texts([f"{chunk.heading_path}\n{chunk.text}" for chunk in chunks])
@@ -92,16 +86,7 @@ def _persist(
     document_id: UUID, subject_id: UUID, chunks: list[Chunk], vectors: list[list[float]]
 ) -> None:
     with SessionLocal() as db:
-        db.execute(
-            delete(SubjectDocumentImageModel).where(
-                SubjectDocumentImageModel.document_id == document_id
-            )
-        )
-        db.execute(
-            delete(SubjectDocumentChunkModel).where(
-                SubjectDocumentChunkModel.document_id == document_id
-            )
-        )
+        clear_document_index_sync(db, document_id)
 
         for sequence, (chunk, vector) in enumerate(zip(chunks, vectors, strict=True), start=1):
             row = SubjectDocumentChunkModel(
@@ -114,11 +99,12 @@ def _persist(
                 page_end=chunk.page_end,
                 embedding=vector,
             )
-            db.add(row)
+            add_document_chunk_sync(db, row)
             db.flush()
 
             for figure in chunk.figures:
-                db.add(
+                add_document_image_sync(
+                    db,
                     SubjectDocumentImageModel(
                         document_id=document_id,
                         chunk_id=row.id,
@@ -130,10 +116,10 @@ def _persist(
                             "y1": figure.bbox[3],
                         },
                         caption=figure.caption,
-                    )
+                    ),
                 )
 
-        document = db.get(SubjectDocumentModel, document_id)
+        document = get_subject_document_by_id_sync(db, document_id)
         if document is not None:
             document.index_status = SubjectDocumentIndexStatus.DONE
             document.chunk_count = len(chunks)
@@ -142,14 +128,6 @@ def _persist(
 
 
 def set_failed(document_id: UUID) -> None:
-    _set_status(document_id, SubjectDocumentIndexStatus.FAILED)
-
-
-def _set_status(document_id: UUID, value: SubjectDocumentIndexStatus) -> None:
     with SessionLocal() as db:
-        db.execute(
-            update(SubjectDocumentModel)
-            .where(SubjectDocumentModel.id == document_id)
-            .values(index_status=value)
-        )
+        set_document_index_status_sync(db, document_id, SubjectDocumentIndexStatus.FAILED)
         db.commit()

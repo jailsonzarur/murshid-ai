@@ -2,11 +2,17 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import Session, selectinload
 
-from src.features.subjects.models import SubjectDocumentModel, SubjectModel
+from src.features.subjects.models import (
+    SubjectDocumentChunkModel,
+    SubjectDocumentImageModel,
+    SubjectDocumentIndexStatus,
+    SubjectDocumentModel,
+    SubjectModel,
+)
 
 
 async def get_subject_by_name(db: AsyncSession, user_id: UUID, name: str) -> SubjectModel | None:
@@ -119,3 +125,54 @@ async def get_subjects_by_ids(
         .order_by(SubjectModel.name)
     )
     return list(result.scalars().all())
+
+
+RECLAIMABLE_INDEX_STATUS = (SubjectDocumentIndexStatus.NONE, SubjectDocumentIndexStatus.FAILED)
+
+
+def get_subject_document_by_id_sync(db: Session, document_id: UUID) -> SubjectDocumentModel | None:
+    return db.get(SubjectDocumentModel, document_id)
+
+
+def claim_document_for_indexing_sync(db: Session, document_id: UUID) -> bool:
+    result = db.execute(
+        update(SubjectDocumentModel)
+        .where(
+            SubjectDocumentModel.id == document_id,
+            SubjectDocumentModel.index_status.in_(RECLAIMABLE_INDEX_STATUS),
+        )
+        .values(index_status=SubjectDocumentIndexStatus.REQUESTED)
+        .returning(SubjectDocumentModel.id)
+    )
+    return result.scalar_one_or_none() is not None
+
+
+def set_document_index_status_sync(
+    db: Session, document_id: UUID, value: SubjectDocumentIndexStatus
+) -> None:
+    db.execute(
+        update(SubjectDocumentModel)
+        .where(SubjectDocumentModel.id == document_id)
+        .values(index_status=value)
+    )
+
+
+def clear_document_index_sync(db: Session, document_id: UUID) -> None:
+    db.execute(
+        delete(SubjectDocumentImageModel).where(
+            SubjectDocumentImageModel.document_id == document_id
+        )
+    )
+    db.execute(
+        delete(SubjectDocumentChunkModel).where(
+            SubjectDocumentChunkModel.document_id == document_id
+        )
+    )
+
+
+def add_document_chunk_sync(db: Session, chunk: SubjectDocumentChunkModel) -> None:
+    db.add(chunk)
+
+
+def add_document_image_sync(db: Session, image: SubjectDocumentImageModel) -> None:
+    db.add(image)

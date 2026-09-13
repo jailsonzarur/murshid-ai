@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from sqlalchemy import func, select, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, selectinload
 
@@ -13,6 +14,7 @@ from src.features.lectures.models import (
     LectureModel,
     LectureSegmentModel,
     LectureStatus,
+    MindmapStatus,
 )
 
 
@@ -178,3 +180,44 @@ async def add_segment(db: AsyncSession, segment: LectureSegmentModel) -> None:
 
 async def delete_lecture(db: AsyncSession, lecture: LectureModel) -> None:
     await db.delete(lecture)
+
+
+RECLAIMABLE_MINDMAP_STATUS = (MindmapStatus.NONE, MindmapStatus.FAILED)
+
+
+async def claim_lecture_mindmap(db: AsyncSession, lecture_id: UUID) -> bool:
+    result = await db.execute(
+        update(LectureModel)
+        .where(
+            LectureModel.id == lecture_id,
+            LectureModel.mindmap_status.in_(RECLAIMABLE_MINDMAP_STATUS),
+        )
+        .values(mindmap_status=MindmapStatus.REQUESTED)
+        .returning(LectureModel.id)
+    )
+    return result.scalar_one_or_none() is not None
+
+
+def set_lecture_mindmap_status_sync(db: Session, lecture_id: UUID, value: MindmapStatus) -> None:
+    db.execute(
+        update(LectureModel).where(LectureModel.id == lecture_id).values(mindmap_status=value)
+    )
+
+
+async def upsert_audio_chunks(db: AsyncSession, specs: list[dict]) -> None:
+    statement = insert(LectureAudioChunkModel).values(specs)
+    await db.execute(
+        statement.on_conflict_do_update(
+            constraint="uq_lecture_audio_chunks_audio_id_sequence",
+            set_={
+                "object_key": statement.excluded.object_key,
+                "start_seconds": statement.excluded.start_seconds,
+                "duration_seconds": statement.excluded.duration_seconds,
+            },
+        )
+    )
+
+
+async def delete_audio_chunks(db: AsyncSession, chunks: list[LectureAudioChunkModel]) -> None:
+    for chunk in chunks:
+        await db.delete(chunk)

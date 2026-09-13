@@ -6,8 +6,6 @@ import tempfile
 from pathlib import Path
 from uuid import UUID
 
-from sqlalchemy.dialects.postgresql import insert
-
 from src.core.pipeline_log import short, stage
 from src.database import AsyncSessionLocal, SessionLocal
 from src.features.files.services.bucket_service import get_bucket_service
@@ -17,7 +15,6 @@ from src.features.lectures.ai.audio_chunking import (
 )
 from src.features.lectures.ai.transcription import TRANSCRIPTION_MODEL, transcribe_chunk_path
 from src.features.lectures.models import (
-    LectureAudioChunkModel,
     LectureAudioStatus,
     LectureSegmentModel,
     LectureStatus,
@@ -26,12 +23,14 @@ from src.features.lectures.repository import (
     add_segment,
     claim_audio_for_consolidation,
     claim_lecture_finalization,
+    delete_audio_chunks,
     get_audio,
     get_audio_chunk_sync,
     get_audio_sync,
     get_audio_with_chunks,
     list_audio_ids_for_lecture,
     sum_audio_duration_before,
+    upsert_audio_chunks,
 )
 
 logger = logging.getLogger(__name__)
@@ -181,17 +180,7 @@ async def _chunk_audio(audio_id: UUID) -> list[UUID]:
             start += seconds
 
     async with AsyncSessionLocal() as db:
-        statement = insert(LectureAudioChunkModel).values(specs)
-        await db.execute(
-            statement.on_conflict_do_update(
-                constraint="uq_lecture_audio_chunks_audio_id_sequence",
-                set_={
-                    "object_key": statement.excluded.object_key,
-                    "start_seconds": statement.excluded.start_seconds,
-                    "duration_seconds": statement.excluded.duration_seconds,
-                },
-            )
-        )
+        await upsert_audio_chunks(db, specs)
         audio = await get_audio_with_chunks(db, audio_id)
         if audio is None:
             return []
@@ -250,8 +239,7 @@ async def _consolidate_audio(audio_id: UUID) -> UUID | None:
         keys = [chunk.object_key for chunk in chunks] + [audio.object_key]
         lecture_id = audio.lecture_id
 
-        for chunk in chunks:
-            await db.delete(chunk)
+        await delete_audio_chunks(db, chunks)
 
         await db.commit()
 

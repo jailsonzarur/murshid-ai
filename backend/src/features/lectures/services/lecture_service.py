@@ -8,7 +8,6 @@ from typing import Any, BinaryIO, TypedDict, cast
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.pipeline_log import short, stage
@@ -28,6 +27,7 @@ from src.features.lectures.models import (
 from src.features.lectures.repository import (
     add_audios,
     add_segment,
+    claim_lecture_mindmap,
     create_lecture,
     delete_lecture,
     get_lecture_by_id,
@@ -35,6 +35,7 @@ from src.features.lectures.repository import (
     get_lecture_with_segments,
     get_lecture_with_segments_sync,
     list_lectures_for_user,
+    set_lecture_mindmap_status_sync,
 )
 from src.features.lectures.schemas.lecture_schemas import (
     LectureDetailSchema,
@@ -453,9 +454,7 @@ def generate_mindmap(lecture_id: UUID) -> None:
 
 def _set_mindmap_status(lecture_id: UUID, value: MindmapStatus) -> None:
     with SessionLocal() as db:
-        db.execute(
-            update(LectureModel).where(LectureModel.id == lecture_id).values(mindmap_status=value)
-        )
+        set_lecture_mindmap_status_sync(db, lecture_id, value)
         db.commit()
 
 
@@ -519,17 +518,9 @@ async def request_mindmap(db: AsyncSession, lecture_id: UUID, user_id: UUID) -> 
             },
         )
 
-    claimed = await db.execute(
-        update(LectureModel)
-        .where(
-            LectureModel.id == lecture_id,
-            LectureModel.mindmap_status.in_((MindmapStatus.NONE, MindmapStatus.FAILED)),
-        )
-        .values(mindmap_status=MindmapStatus.REQUESTED)
-        .returning(LectureModel.id)
-    )
+    claimed = await claim_lecture_mindmap(db, lecture_id)
     await db.commit()
-    if claimed.scalar_one_or_none() is None:
+    if not claimed:
         return
 
     from src.features.lectures.tasks import generate_lecture_mindmap_task
