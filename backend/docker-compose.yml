@@ -106,7 +106,7 @@ services:
         condition: service_healthy
 
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: api_v2_postgres
     ports:
       - "15434:5432"
@@ -115,7 +115,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: api_v2
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_pgvector_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -171,5 +171,6 @@ services:
 volumes:
   minio_data:
   postgres_data:
+  postgres_pgvector_data:
   redis_data:
   frontend_node_modules:
