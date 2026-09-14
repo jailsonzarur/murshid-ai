@@ -176,3 +176,16 @@ def add_document_chunk_sync(db: Session, chunk: SubjectDocumentChunkModel) -> No
 
 def add_document_image_sync(db: Session, image: SubjectDocumentImageModel) -> None:
     db.add(image)
+
+
+def search_subject_chunks_sync(
+    db: Session, subject_id: UUID, embedding: list[float], *, limit: int = 3
+) -> list[tuple[SubjectDocumentChunkModel, float]]:
+    distance = SubjectDocumentChunkModel.embedding.cosine_distance(embedding)
+    result = db.execute(
+        select(SubjectDocumentChunkModel, distance.label("distance"))
+        .where(SubjectDocumentChunkModel.subject_id == subject_id)
+        .order_by(distance)
+        .limit(limit)
+    )
+    return [(chunk, float(value)) for chunk, value in result.all()]

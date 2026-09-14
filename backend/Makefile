@@ -1,4 +1,4 @@
-.PHONY: help install dev start worker test coverage lint typecheck format check clean docker-up docker-down up down generate history current inspect
+.PHONY: help install dev start worker test coverage lint typecheck format check clean docker-up docker-down up down generate history current inspect search
 
 PORT ?= 8002
 n ?= auto
@@ -30,6 +30,7 @@ help:
 	@echo ""
 	@echo "  Materias"
 	@echo "    make inspect doc=\"titulo\"  Inspeciona o chunking de um documento"
+	@echo "    make search subject=\"materia\" q=\"consulta\"  Busca trechos por similaridade"
 	@echo ""
 
 install:
@@ -89,3 +90,6 @@ clean:
 
 inspect:
 	uv run python -m src.features.subjects.inspect_index "$(doc)"
+
+search:
+	uv run python -m src.features.subjects.search_chunks "$(subject)" "$(q)" $(k)
