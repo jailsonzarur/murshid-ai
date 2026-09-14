@@ -4571,37 +4571,17 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* Troca de matéria no hero da aula */
-.subject-badge {
-  position: relative;
-  padding: 4px 10px 4px 10px;
-  border-radius: 999px;
-  background: oklch(100% 0 0 / 0.1);
-  border: 1px solid oklch(100% 0 0 / 0.14);
-}
+.subject-pill { position: relative; display: inline-flex; }
 
-.subject-badge__edit {
-  display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  margin-left: 2px;
-  padding: 0;
+.subject-pill__button {
   border: none;
-  border-radius: 5px;
-  background: transparent;
-  color: oklch(100% 0 0 / 0.7);
+  font: inherit;
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.14s ease, background 0.14s ease;
+  transition: background 0.14s ease, color 0.14s ease;
 }
 
-.subject-badge:hover .subject-badge__edit,
-.subject-badge__edit:focus-visible {
-  opacity: 1;
-}
-
-.subject-badge__edit:hover {
-  background: oklch(100% 0 0 / 0.16);
+.subject-pill__button:hover {
+  background: oklch(100% 0 0 / 0.22);
   color: oklch(100% 0 0);
 }
 
@@ -4616,10 +4596,11 @@ a { color: inherit; text-decoration: none; }
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: var(--surface);
+  background: var(--card);
   box-shadow: 0 16px 40px oklch(0% 0 0 / 0.24);
   letter-spacing: normal;
   text-transform: none;
+  text-align: left;
 }
 
 .subject-picker__head {
@@ -4641,7 +4622,7 @@ a { color: inherit; text-decoration: none; }
   font: inherit;
   font-size: 13px;
   font-weight: 400;
-  color: var(--ink-1);
+  color: var(--ink);
 }
 
 .subject-picker__pending {
@@ -4652,7 +4633,7 @@ a { color: inherit; text-decoration: none; }
   white-space: nowrap;
   font-size: 13px;
   font-weight: 500;
-  color: var(--ink-1);
+  color: var(--ink);
 }
 
 .subject-picker__ok {
@@ -4676,7 +4657,7 @@ a { color: inherit; text-decoration: none; }
   cursor: pointer;
 }
 
-.subject-picker__clear:hover { background: var(--surface-2); color: var(--ink-2); }
+.subject-picker__clear:hover { background: var(--card-alt); color: var(--ink-2); }
 
 .subject-picker__list {
   max-height: 240px;
@@ -4702,8 +4683,8 @@ a { color: inherit; text-decoration: none; }
   cursor: pointer;
 }
 
-.subject-picker__option:hover { background: var(--surface-2); color: var(--ink-1); }
-.subject-picker__option.is-current { color: var(--brand); font-weight: 500; }
+.subject-picker__option:hover { background: var(--card-alt); color: var(--ink); }
+.subject-picker__option.is-current { color: var(--accent); font-weight: 500; }
 
 .subject-picker__empty {
   margin: 0;
@@ -4726,4 +4707,4 @@ a { color: inherit; text-decoration: none; }
   cursor: pointer;
 }
 
-.subject-picker__remove:hover { background: var(--surface-2); }
+.subject-picker__remove:hover { background: var(--card-alt); }

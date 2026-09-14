@@ -207,25 +207,9 @@ export function LectureViewerPage() {
             <span className="hero-orb h1" />
             <div className="hero-content">
               <div className="hero-left">
-                <div className="hero-eyebrow subject-badge">
+                <div className="hero-eyebrow">
                   <span className="eyebrow-dot" />
                   {lecture.subject?.name ?? 'Sem matéria'}
-                  <button
-                    aria-label="Trocar matéria"
-                    className="subject-badge__edit"
-                    onClick={() => setPickerOpen((open) => !open)}
-                    type="button"
-                  >
-                    <Icon name="pencil" size={12} />
-                  </button>
-                  {pickerOpen ? (
-                    <SubjectPicker
-                      current={lecture.subject}
-                      isSaving={isSavingSubject}
-                      onClose={() => setPickerOpen(false)}
-                      onConfirm={(subject) => void handleChangeSubject(subject)}
-                    />
-                  ) : null}
                 </div>
                 <h2 className="hero-title">{lecture.title ?? 'Aula sem título'}</h2>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
@@ -234,6 +218,25 @@ export function LectureViewerPage() {
                     <span>
                       Duração <strong style={{ marginLeft: 4 }}>{formatDuration(lecture.duration_seconds)}</strong>
                     </span>
+                  </span>
+                  <span className="subject-pill">
+                    <button
+                      aria-label="Trocar matéria"
+                      className="pill pill-mute subject-pill__button"
+                      onClick={() => setPickerOpen((open) => !open)}
+                      type="button"
+                    >
+                      <Icon name="pencil" size={12} />
+                      <span>{lecture.subject?.name ?? 'Definir matéria'}</span>
+                    </button>
+                    {pickerOpen ? (
+                      <SubjectPicker
+                        current={lecture.subject}
+                        isSaving={isSavingSubject}
+                        onClose={() => setPickerOpen(false)}
+                        onConfirm={(subject) => void handleChangeSubject(subject)}
+                      />
+                    ) : null}
                   </span>
                   <span className="pill pill-accent">
                     <Icon name="listChecks" size={12} />
