@@ -14,6 +14,7 @@ MIN_HEADING_CHARS = 3
 MAX_HEADING_CHARS = 120
 MAX_BOLD_HEADING_CHARS = 80
 MIN_LEVEL_SHARE = 0.0005
+MAX_TOP_LEVEL_REPEATS = 5
 
 DOTTED_LEADER = re.compile(r"\.{5,}")
 PATH_SEPARATOR = " > "
@@ -39,6 +40,8 @@ def split_into_sections(elements: list[Element], document_title: str) -> list[Se
     size_levels = _size_levels(lines, body_size)
     bold_is_heading = _bold_is_heading(lines, body_size, size_levels)
 
+    furniture = _repeated_top_level(lines, size_levels, body_size, bold_is_heading)
+
     sections: list[Section] = []
     stack: dict[int, str] = {}
     current: list[Element] = []
@@ -62,6 +65,8 @@ def split_into_sections(elements: list[Element], document_title: str) -> list[Se
             if isinstance(element, Line)
             else None
         )
+        if level == 1 and element.text in furniture:
+            level = None
         if level is None or not isinstance(element, Line):
             current.append(element)
             continue
@@ -74,6 +79,20 @@ def split_into_sections(elements: list[Element], document_title: str) -> list[Se
 
     flush()
     return sections
+
+
+def _repeated_top_level(
+    lines: list[Line], size_levels: list[float], body_size: float, bold_is_heading: bool
+) -> set[str]:
+    """Título de nível 1 que se repete é mobília do livro — "Questões para estudo",
+    "Resumo para estudo" — e não capítulo. Como ele zera a pilha, apagaria a
+    identidade de tudo abaixo. Níveis mais fundos repetem de forma legítima
+    ("Epidemiologia" sob cada organismo), então o filtro só vale no topo."""
+    seen: Counter[str] = Counter()
+    for line in lines:
+        if _heading_level(line, size_levels, body_size, bold_is_heading) == 1:
+            seen[line.text] += 1
+    return {text for text, total in seen.items() if total > MAX_TOP_LEVEL_REPEATS}
 
 
 def _body_size(lines: list[Line]) -> float:

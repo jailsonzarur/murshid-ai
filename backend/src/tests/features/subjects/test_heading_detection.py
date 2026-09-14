@@ -82,6 +82,44 @@ class TestHeadingFilters:
         assert "Subsecao Quatro" not in caminho
 
 
+class TestRepeatedHeadings:
+    def test_a_repeated_top_level_heading_is_treated_as_furniture(self):
+        elements = []
+        for i in range(8):
+            elements += [
+                _line("Questões para estudo", size=29.0),
+                _line(f"Capítulo {i} — Assunto real", size=16.0),
+                *_body(),
+            ]
+
+        caminhos = {s.heading_path for s in split_into_sections(elements, DOC)}
+
+        assert not any("Questões para estudo" in c for c in caminhos)
+        assert f"{DOC} > Capítulo 0 — Assunto real" in caminhos
+
+    def test_a_repeated_deeper_heading_is_kept(self):
+        elements = []
+        for i in range(8):
+            elements += [
+                _line(f"Organismo {i}", size=29.0),
+                _line("Epidemiologia", size=16.0),
+                *_body(),
+            ]
+
+        caminhos = {s.heading_path for s in split_into_sections(elements, DOC)}
+
+        assert f"{DOC} > Organismo 3 > Epidemiologia" in caminhos
+
+    def test_a_top_level_heading_below_the_limit_is_kept(self):
+        elements = []
+        for i in range(3):
+            elements += [_line("Parte Recorrente", size=29.0), *_body()]
+
+        caminhos = {s.heading_path for s in split_into_sections(elements, DOC)}
+
+        assert caminhos == {f"{DOC} > Parte Recorrente"}
+
+
 class TestBoldHeadings:
     def test_bold_at_body_size_fills_the_missing_level(self):
         elements = [
