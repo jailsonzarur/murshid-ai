@@ -186,53 +186,82 @@ Ressalva: os números são documentados para a família GPT-4o. Não foi confirm
 
 # Plano de implementação — alternativa 1
 
-## Passo 1 — Busca isolada e validação
+Espelha o fluxo do mapa mental, que já está em produção e testado: um campo de conteúdo,
+um campo de status com claim atômico, uma task na fila `summaries`, uma rota `POST`, e um
+botão com polling no frontend.
 
-Antes de qualquer prompt. É o passo 3b do `RESUMO-GUIADO.md`.
+## Medições que fundamentam
 
-**Repository**, em `subjects/repository.py`:
+Feitas contra a matéria "Microbiologia" (Murray 3.094 chunks + Tortora 3.235) usando as 9
+seções reais do resumo da aula Teste 33 como consulta.
 
-```python
-def search_subject_chunks_sync(
-    db, subject_id, embedding, *, limit=3, max_distance
-) -> list[tuple[SubjectDocumentChunkModel, float]]
-```
+| | distância |
+|---|---|
+| 9 seções de microbiologia | 0,1598 – 0,3251 |
+| 7 seções de imunologia | 0,1921 – 0,2731 |
+| 3 controles fora do domínio | 0,5913 – 0,6343 |
 
-Devolve o chunk e a distância, ordenado, já filtrado por matéria. O limiar fica no
-chamador, para a auditoria conseguir gravar também os rejeitados.
+Todas as 9 recuperaram material correto, conferido por conteúdo e não por distância. O vão
+entre coberto e não coberto é de 0,2662.
 
-**Comando de validação**, nos moldes do `make inspect`:
+**Limiar: 0,45.** Fica no meio do vão, com 0,12 de folga para cada lado.
 
-```
-make search subject="Teste 1" q="fagocitose por neutrófilos"
-```
+Ressalva: os controles fora do domínio são textos sintéticos, escritos por falta de seção
+real de outro assunto. O piso de 0,59 é estimativa, não medição de dado real.
 
-Imprime os trechos com distância, `heading_path` e página. É o que permite calibrar o
-limiar olhando resultado real antes de escrever prompt.
+## Passo 1 — Schema
 
-**Critério para seguir:** rodar 10 consultas tiradas de um resumo real e conferir na mão se
-os trechos do Murray fazem sentido. Se não fizerem, o problema é a recuperação, e nenhum
-prompt conserta.
-
-## Passo 2 — Schema
-
-Na `LectureModel`:
+Na `LectureModel`, espelhando `mindmap_data` / `mindmap_status`:
 
 ```
 guided_summary   text, nullable
 guided_status    NONE | REQUESTED | PROCESSING | DONE | FAILED
 ```
 
-Mais a tabela `lecture_guided_citations` descrita acima.
+A tabela de citações, que é também a auditoria:
+
+```sql
+CREATE TABLE lecture_guided_citations (
+    id          uuid PRIMARY KEY,
+    lecture_id  uuid NOT NULL REFERENCES lectures(id) ON DELETE CASCADE,
+    topic       text NOT NULL,
+    query       text NOT NULL,
+    results     jsonb NOT NULL,
+    created_at  timestamptz NOT NULL
+);
+```
+
+Índice em `lecture_id`. Regerar apaga as linhas da aula antes de inserir, como o
+`clear_document_index_sync` faz com os chunks.
+
+## Passo 2 — Repository
+
+Em `lectures/repository.py`, no mesmo formato de `claim_lecture_mindmap`:
+
+```python
+async def claim_lecture_guided_summary(db, lecture_id) -> bool
+def set_lecture_guided_status_sync(db, lecture_id, value) -> None
+def clear_guided_citations_sync(db, lecture_id) -> None
+def add_guided_citation_sync(db, citation) -> None
+```
+
+A busca vetorial já existe: `search_subject_chunks_sync` em `subjects/repository.py`.
 
 ## Passo 3 — Agente dos tópicos
 
-`lectures/ai/guided_topics_agent.py`. Lê o resumo, devolve tópicos com query, em saída
-estruturada — mesmo padrão de `json_schema` que o `mindmap_tree_agent` já usa.
+`lectures/ai/guided_topics_agent.py`, no padrão de saída estruturada do
+`mindmap_tree_agent`. Lê o resumo, devolve por tópico:
 
-Pedir junto uma frase literal da transcrição onde o tópico começa. Não é usada na
-alternativa 1, mas fica gravada: se um dia a alternativa 3 for implementada, a âncora já
-existe e não precisa reprocessar.
+```
+titulo    o título da seção
+query     o texto da seção, que é o que vai ser embedado
+ancora    uma frase literal da transcrição onde o tópico começa
+```
+
+A `ancora` não é usada na alternativa 1. Fica gravada porque, se a alternativa 3 for
+implementada, ela já existe e não exige reprocessar nada.
+
+Modelo e reasoning por env, como os outros agentes.
 
 ## Passo 4 — Agente do resumo guiado
 
@@ -243,26 +272,78 @@ O prompt precisa carregar:
 
 - citar inline ao afirmar algo vindo de um trecho
 - separar o que a aula disse do que o livro diz
-- quando divergirem, apresentar como **divergência encontrada** com os dois lados, sem
-  arbitrar
+- ao divergirem, apresentar como **divergência encontrada** com os dois lados, sem arbitrar
 - tópico sem trecho: explicar a partir da aula e marcar como não verificado
 
-## Passo 5 — Serviço e task
+## Passo 5 — Serviço
 
-Orquestra: lê resumo → tópicos → embeda queries → busca → monta contexto numerado → chama
-o agente → **valida os `[[n]]` contra os números enviados** → grava resumo e citações.
+Em `lecture_service.py`, espelhando `request_mindmap` / `generate_mindmap`:
 
-Task na fila `summaries`, claim atômico em `guided_status`, rota `POST
-/lectures/{id}/guided-summary`. Mesmo desenho do mapa mental, que já está testado.
+```python
+async def request_guided_summary(db, lecture_id, user_id) -> None
+def generate_guided_summary(lecture_id) -> None      # com stage()
+```
 
-## Passo 6 — Frontend
+Guardas do `request`, na ordem do mapa mental:
 
-Botão sob demanda, polling por `guided_status`, e o renderizador que troca `[[n]]` por
-badge com painel lateral. O painel mostra trecho, `heading_path`, página e a figura quando
-houver.
+1. aula não é do usuário → 404
+2. `guided_summary` já existe → retorna sem fazer nada
+3. sem `summary` → 400, "O resumo da aula ainda não está pronto."
+4. sem `subject_id` → 400, "A aula precisa de uma matéria com bibliografia."
+5. claim atômico; se não ganhou, retorna
+
+O corpo da geração:
+
+```
+resumo → agente de tópicos → embeda as queries em lote
+       → busca por tópico, teto de 3 acima do limiar
+       → grava as citações, inclusive as rejeitadas com a distância
+       → monta o contexto numerado
+       → agente do resumo guiado
+       → valida os [[n]] contra os números enviados
+       → grava guided_summary e marca DONE
+```
+
+Uma task só, como o mapa mental. São duas chamadas de LLM mais um lote de embeddings,
+sequenciais e da ordem de dois minutos — bem dentro do `task_soft_time_limit` de 5400s.
+
+Fechar os mesmos buracos do mapa mental: saída vazia marca `FAILED`, exceção marca `FAILED`
+e propaga, e sair cedo porque já existe marca `DONE` — senão o status fica preso em
+`REQUESTED` e o spinner não sai.
+
+## Passo 6 — Task e rota
+
+```python
+@celery_app.task(name="generate_lecture_guided_summary_task")   # fila summaries
+```
+
+`POST /lectures/{lecture_id}/guided-summary`, status 202, `SuccessResponse[None]`. O
+cliente já sabe lidar com `data: null` desde a correção do `allowNullData`.
+
+## Passo 7 — Frontend
+
+Mesmo desenho do mapa mental:
+
+```js
+const isBuildingGuided = lecture?.guided_status === 'REQUESTED'
+```
+
+Botão sob demanda, update otimista para `REQUESTED`, polling de 3s enquanto estiver nesse
+estado, e `FAILED` devolve o botão com a mensagem. O `guided_status` entra no
+`LectureDetailSchema`.
+
+Renderizador que troca `[[n]]` por badge, com painel lateral mostrando trecho,
+`heading_path`, página e a figura quando houver.
 
 ## Verificação
 
-Custo real medido no `usage`, incluindo `cached_tokens` para confirmar se o caching vale no
-luna. E a leitura do resultado numa aula real do Murray — se a alternativa 1 entregar bem,
-as outras duas podem nem ser necessárias.
+- custo real no `usage`, incluindo `cached_tokens`
+- a auditoria permite reler, para cada tópico, o que foi recuperado e o que foi rejeitado
+- leitura do resultado na Teste 33, que é a aula já validada na recuperação
+
+## Pendência conhecida
+
+O `heading_path` do Tortora melhorou com o filtro de mobília, mas ainda mistura título de
+box lateral com título de capítulo no mesmo tamanho de fonte. A citação vai nomear um
+assunto plausível, nem sempre o capítulo correto. Reindexar o Tortora aplica o filtro já
+implementado; separar box de capítulo é trabalho adicional ainda não feito.
