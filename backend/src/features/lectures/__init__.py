@@ -10,6 +10,9 @@ from src.features.lectures.routes.pause_lecture import router as pause_lecture_r
 from src.features.lectures.routes.process_segment import router as process_segment_router
 from src.features.lectures.routes.resume_lecture import router as resume_lecture_router
 from src.features.lectures.routes.start_lecture import router as start_lecture_router
+from src.features.lectures.routes.update_lecture_subject import (
+    router as update_lecture_subject_router,
+)
 
 router = APIRouter(tags=["Lectures"])
 
@@ -23,5 +26,6 @@ router.include_router(process_segment_router, prefix="/lectures")
 router.include_router(delete_lecture_router, prefix="/lectures")
 router.include_router(import_lecture_router, prefix="/lectures")
 router.include_router(generate_mindmap_router, prefix="/lectures")
+router.include_router(update_lecture_subject_router, prefix="/lectures")
 
 __all__ = ["router"]

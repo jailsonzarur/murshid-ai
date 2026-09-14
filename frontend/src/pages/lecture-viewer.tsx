@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 
+import { SubjectPicker } from '../components/lectures/SubjectPicker'
 import { SummaryModal } from '../components/lectures/SummaryModal'
 import { SummaryPdfButton } from '../components/lectures/SummaryPdfButton'
 import { TranscriptModal } from '../components/lectures/TranscriptModal'
@@ -10,10 +11,10 @@ import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { EmptyState } from '../components/ui/empty-state'
 import { Icon } from '../components/ui/icon'
-import { ApiError, generateLectureMindmap, getLecture } from '../lib/api'
+import { ApiError, generateLectureMindmap, getLecture, updateLectureSubject } from '../lib/api'
 import { getAccessToken } from '../lib/auth'
 import { navigateTo } from '../lib/navigation'
-import type { LectureDetail } from '../types/lecture'
+import type { LectureDetail, Subject } from '../types/lecture'
 
 function getLectureIdFromPath() {
   const [, resource, lectureId] = window.location.pathname.split('/')
@@ -68,6 +69,23 @@ export function LectureViewerPage() {
   const [transcriptOpen, setTranscriptOpen] = useState(false)
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [mindmapError, setMindmapError] = useState<string | undefined>()
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [isSavingSubject, setIsSavingSubject] = useState(false)
+
+  async function handleChangeSubject(subject: Subject | null) {
+    const lectureId = getLectureIdFromPath()
+    if (!lectureId) return
+
+    setIsSavingSubject(true)
+    try {
+      setLecture(await updateLectureSubject(lectureId, subject?.id ?? null))
+      setPickerOpen(false)
+    } catch {
+      // o toast global ja reporta
+    } finally {
+      setIsSavingSubject(false)
+    }
+  }
 
   const isBuildingMindmap = lecture?.mindmap_status === 'REQUESTED'
 
@@ -189,9 +207,25 @@ export function LectureViewerPage() {
             <span className="hero-orb h1" />
             <div className="hero-content">
               <div className="hero-left">
-                <div className="hero-eyebrow">
+                <div className="hero-eyebrow subject-badge">
                   <span className="eyebrow-dot" />
                   {lecture.subject?.name ?? 'Sem matéria'}
+                  <button
+                    aria-label="Trocar matéria"
+                    className="subject-badge__edit"
+                    onClick={() => setPickerOpen((open) => !open)}
+                    type="button"
+                  >
+                    <Icon name="pencil" size={12} />
+                  </button>
+                  {pickerOpen ? (
+                    <SubjectPicker
+                      current={lecture.subject}
+                      isSaving={isSavingSubject}
+                      onClose={() => setPickerOpen(false)}
+                      onConfirm={(subject) => void handleChangeSubject(subject)}
+                    />
+                  ) : null}
                 </div>
                 <h2 className="hero-title">{lecture.title ?? 'Aula sem título'}</h2>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>

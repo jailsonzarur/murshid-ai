@@ -662,6 +662,21 @@ export async function generateLectureMindmap(lectureId: string) {
   return parseApiResponse<null>(response, { allowNullData: true })
 }
 
+export async function updateLectureSubject(lectureId: string, subjectId: string | null) {
+  const authorization = requireAuth()
+
+  const response = await fetchApi(`${API_BASE_URL}/lectures/${lectureId}/subject`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: authorization,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ subject_id: subjectId }),
+  })
+
+  return parseApiResponse<LectureDetail>(response)
+}
+
 export async function getLecture(lectureId: string) {
   const authorization = requireAuth()
 

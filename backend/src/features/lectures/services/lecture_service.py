@@ -499,6 +499,31 @@ def _generate_mindmap(lecture_id: UUID) -> None:
     logger.info("generate_mindmap done for %s: nodes=%d", lecture_id, len(tree_result))
 
 
+async def change_lecture_subject(
+    db: AsyncSession, lecture_id: UUID, user_id: UUID, subject_id: UUID | None
+) -> LectureDetailSchema:
+    from src.features.subjects.repository import get_subject_by_id
+
+    lecture = await get_lecture_with_segments(db, lecture_id)
+    if lecture is None or lecture.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"success": False, "errors": ["Aula não encontrada."], "data": None},
+        )
+
+    if subject_id is not None and await get_subject_by_id(db, subject_id, user_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"success": False, "errors": ["Matéria não encontrada."], "data": None},
+        )
+
+    lecture.subject_id = subject_id
+    await db.commit()
+    await db.refresh(lecture, attribute_names=["subject"])
+
+    return _build_detail(lecture)
+
+
 async def request_mindmap(db: AsyncSession, lecture_id: UUID, user_id: UUID) -> None:
     lecture = await get_lecture_by_id(db, lecture_id)
     if lecture is None or lecture.user_id != user_id:

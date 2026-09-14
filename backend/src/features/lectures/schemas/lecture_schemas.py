@@ -64,3 +64,7 @@ class LectureDetailSchema(BaseModel):
     segments: list[LectureSegmentSchema]
     created_at: datetime
     updated_at: datetime
+
+
+class UpdateLectureSubjectSchema(BaseModel):
+    subject_id: UUID | None = None

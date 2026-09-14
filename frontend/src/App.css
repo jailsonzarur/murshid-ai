@@ -4569,3 +4569,161 @@ a { color: inherit; text-decoration: none; }
   color: var(--ink-4);
   text-align: center;
 }
+
+/* Troca de matéria no hero da aula */
+.subject-badge {
+  position: relative;
+  padding: 4px 10px 4px 10px;
+  border-radius: 999px;
+  background: oklch(100% 0 0 / 0.1);
+  border: 1px solid oklch(100% 0 0 / 0.14);
+}
+
+.subject-badge__edit {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: oklch(100% 0 0 / 0.7);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.14s ease, background 0.14s ease;
+}
+
+.subject-badge:hover .subject-badge__edit,
+.subject-badge__edit:focus-visible {
+  opacity: 1;
+}
+
+.subject-badge__edit:hover {
+  background: oklch(100% 0 0 / 0.16);
+  color: oklch(100% 0 0);
+}
+
+.subject-picker {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 40;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 16px 40px oklch(0% 0 0 / 0.24);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.subject-picker__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.subject-picker__search-icon { color: var(--ink-4); flex-shrink: 0; }
+
+.subject-picker__input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ink-1);
+}
+
+.subject-picker__pending {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-1);
+}
+
+.subject-picker__ok {
+  flex-shrink: 0;
+  height: 24px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.subject-picker__clear {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink-4);
+  cursor: pointer;
+}
+
+.subject-picker__clear:hover { background: var(--surface-2); color: var(--ink-2); }
+
+.subject-picker__list {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.subject-picker__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  text-align: left;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.subject-picker__option:hover { background: var(--surface-2); color: var(--ink-1); }
+.subject-picker__option.is-current { color: var(--brand); font-weight: 500; }
+
+.subject-picker__empty {
+  margin: 0;
+  padding: 14px 10px;
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--ink-4);
+  text-align: center;
+}
+
+.subject-picker__remove {
+  padding: 9px 10px;
+  border: none;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--danger);
+  cursor: pointer;
+}
+
+.subject-picker__remove:hover { background: var(--surface-2); }
