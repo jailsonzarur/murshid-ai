@@ -4605,15 +4605,19 @@ a { color: inherit; text-decoration: none; }
   gap: 6px;
   padding: 8px 10px;
   border-bottom: 1px solid var(--line);
+  transition: border-color 0.14s ease;
 }
 
+.subject-picker__head:focus-within { border-bottom-color: var(--accent); }
+
 .subject-picker__search-icon { color: var(--ink-4); flex-shrink: 0; }
+
+.subject-picker__input:focus { outline: none; }
 
 .subject-picker__input {
   flex: 1;
   min-width: 0;
   border: none;
-  outline: none;
   background: transparent;
   font: inherit;
   font-size: 13px;
