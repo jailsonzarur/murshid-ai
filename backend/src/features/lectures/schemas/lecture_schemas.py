@@ -70,3 +70,17 @@ class LectureDetailSchema(BaseModel):
 
 class UpdateLectureSubjectSchema(BaseModel):
     subject_id: UUID | None = None
+
+
+class GuidedCitationExcerptSchema(BaseModel):
+    n: int
+    chunk_id: UUID
+    distance: float
+    heading_path: str
+    page_start: int | None = None
+    text: str
+
+
+class GuidedCitationSchema(BaseModel):
+    topic: str
+    excerpts: list[GuidedCitationExcerptSchema]

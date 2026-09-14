@@ -16,6 +16,7 @@ import type {
   SubjectDetail,
   SubjectDocument,
   SubjectOptions,
+  GuidedCitation,
   LectureDetail,
   LectureSummary,
   ProcessSegmentResponse,
@@ -675,6 +676,31 @@ export async function updateLectureSubject(lectureId: string, subjectId: string 
   })
 
   return parseApiResponse<LectureDetail>(response)
+}
+
+export async function generateLectureGuidedSummary(lectureId: string) {
+  const authorization = requireAuth()
+
+  const response = await fetchApi(`${API_BASE_URL}/lectures/${lectureId}/guided-summary`, {
+    method: 'POST',
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  return parseApiResponse<null>(response, { allowNullData: true })
+}
+
+export async function listLectureGuidedCitations(lectureId: string) {
+  const authorization = requireAuth()
+
+  const response = await fetchApi(`${API_BASE_URL}/lectures/${lectureId}/guided-citations`, {
+    headers: {
+      Authorization: authorization,
+    },
+  })
+
+  return parseApiResponse<GuidedCitation[]>(response)
 }
 
 export async function getLecture(lectureId: string) {

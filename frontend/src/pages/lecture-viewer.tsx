@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 
+import { GuidedSummary } from '../components/lectures/GuidedSummary'
 import { SubjectPicker } from '../components/lectures/SubjectPicker'
 import { SummaryModal } from '../components/lectures/SummaryModal'
 import { SummaryPdfButton } from '../components/lectures/SummaryPdfButton'
@@ -11,10 +12,17 @@ import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { EmptyState } from '../components/ui/empty-state'
 import { Icon } from '../components/ui/icon'
-import { ApiError, generateLectureMindmap, getLecture, updateLectureSubject } from '../lib/api'
+import {
+  ApiError,
+  generateLectureGuidedSummary,
+  generateLectureMindmap,
+  getLecture,
+  listLectureGuidedCitations,
+  updateLectureSubject,
+} from '../lib/api'
 import { getAccessToken } from '../lib/auth'
 import { navigateTo } from '../lib/navigation'
-import type { LectureDetail, Subject } from '../types/lecture'
+import type { GuidedCitation, LectureDetail, Subject } from '../types/lecture'
 
 function getLectureIdFromPath() {
   const [, resource, lectureId] = window.location.pathname.split('/')
@@ -72,6 +80,27 @@ export function LectureViewerPage() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [isSavingSubject, setIsSavingSubject] = useState(false)
   const subjectButtonRef = useRef<HTMLButtonElement>(null)
+  const [guidedError, setGuidedError] = useState<string | undefined>()
+  const [citations, setCitations] = useState<GuidedCitation[]>([])
+
+  const isBuildingGuided =
+    lecture?.guided_status === 'REQUESTED' || lecture?.guided_status === 'PROCESSING'
+
+  async function handleGenerateGuided() {
+    const lectureId = getLectureIdFromPath()
+    if (!lectureId) return
+
+    setGuidedError(undefined)
+    setLecture((current) => (current ? { ...current, guided_status: 'REQUESTED' } : current))
+    try {
+      await generateLectureGuidedSummary(lectureId)
+    } catch (error) {
+      setLecture((current) => (current ? { ...current, guided_status: 'NONE' } : current))
+      setGuidedError(
+        error instanceof ApiError ? error.message : 'Não foi possível gerar o resumo guiado.',
+      )
+    }
+  }
 
   async function handleChangeSubject(subject: Subject | null) {
     const lectureId = getLectureIdFromPath()
@@ -107,6 +136,38 @@ export function LectureViewerPage() {
       )
     }
   }
+
+  useEffect(() => {
+    if (!isBuildingGuided) return
+
+    const lectureId = getLectureIdFromPath()
+    if (!lectureId) return
+
+    const intervalId = window.setInterval(() => {
+      void getLecture(lectureId)
+        .then((data) => {
+          if (data.guided_status === 'REQUESTED' || data.guided_status === 'PROCESSING') return
+          setLecture(data)
+          if (data.guided_status === 'FAILED') {
+            setGuidedError('Não foi possível gerar o resumo guiado. Tente novamente.')
+          }
+        })
+        .catch(() => undefined)
+    }, 3000)
+
+    return () => window.clearInterval(intervalId)
+  }, [isBuildingGuided])
+
+  useEffect(() => {
+    if (!lecture?.guided_summary) return
+
+    const lectureId = getLectureIdFromPath()
+    if (!lectureId) return
+
+    void listLectureGuidedCitations(lectureId)
+      .then(setCitations)
+      .catch(() => undefined)
+  }, [lecture?.guided_summary])
 
   useEffect(() => {
     if (!isBuildingMindmap) return
@@ -383,6 +444,21 @@ export function LectureViewerPage() {
               onClick={() => setTranscriptOpen(true)}
               primary
             />
+            {lecture.guided_summary ? null : (
+              <ActionButton
+                disabled={!lecture.summary || !lecture.subject || isBuildingGuided}
+                icon="bookOpen"
+                label={isBuildingGuided ? 'Gerando resumo guiado...' : 'Gerar resumo guiado'}
+                onClick={() => void handleGenerateGuided()}
+                title={
+                  lecture.subject
+                    ? lecture.summary
+                      ? undefined
+                      : 'Disponível quando o resumo ficar pronto'
+                    : 'Defina uma matéria com bibliografia anexada'
+                }
+              />
+            )}
             {lecture.nodes.length > 0 ? null : (
               <ActionButton
                 disabled={!lecture.summary || isBuildingMindmap}
@@ -396,6 +472,32 @@ export function LectureViewerPage() {
 
           {mindmapError ? (
             <p style={{ marginTop: 10, fontSize: 12, color: 'var(--danger)' }}>{mindmapError}</p>
+          ) : null}
+          {guidedError ? (
+            <p style={{ marginTop: 10, fontSize: 12, color: 'var(--danger)' }}>{guidedError}</p>
+          ) : null}
+
+          {lecture.guided_summary || isBuildingGuided ? (
+            <Card style={{ marginTop: 18 }}>
+              <CardHeader>
+                <div>
+                  <CardTitle>Resumo guiado</CardTitle>
+                  <div className="card-sub">
+                    Explicado com a bibliografia de {lecture.subject?.name ?? 'sua matéria'}
+                  </div>
+                </div>
+                <span className="tag accent">
+                  <Icon name="bookOpen" size={11} /> {citations.length} tópicos
+                </span>
+              </CardHeader>
+              <CardContent>
+                {lecture.guided_summary ? (
+                  <GuidedSummary citations={citations} markdown={lecture.guided_summary} />
+                ) : (
+                  <ProcessingState label="Escrevendo o resumo guiado..." />
+                )}
+              </CardContent>
+            </Card>
           ) : null}
 
           {transcriptOpen ? (

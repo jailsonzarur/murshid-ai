@@ -72,6 +72,8 @@ export type LectureSummary = {
 
 export type MindmapStatus = 'NONE' | 'REQUESTED' | 'DONE' | 'FAILED'
 
+export type GuidedSummaryStatus = 'NONE' | 'REQUESTED' | 'PROCESSING' | 'DONE' | 'FAILED'
+
 export type LectureDetail = {
   id: string
   user_id: string
@@ -81,6 +83,8 @@ export type LectureDetail = {
   duration_seconds: number
   summary: string | null
   mindmap_status: MindmapStatus
+  guided_summary: string | null
+  guided_status: GuidedSummaryStatus
   nodes: LectureNode[]
   segments: LectureSegment[]
   created_at: string
@@ -95,4 +99,18 @@ export type ProcessSegmentResponse = {
 export type StartLecturePayload = {
   title?: string | null
   subject_id?: string | null
+}
+
+export type GuidedCitationExcerpt = {
+  n: number
+  chunk_id: string
+  distance: number
+  heading_path: string
+  page_start: number | null
+  text: string
+}
+
+export type GuidedCitation = {
+  topic: string
+  excerpts: GuidedCitationExcerpt[]
 }

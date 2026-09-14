@@ -40,11 +40,14 @@ from src.features.lectures.repository import (
     get_lecture_by_id_sync,
     get_lecture_with_segments,
     get_lecture_with_segments_sync,
+    list_guided_citations_for_lecture,
     list_lectures_for_user,
     set_lecture_guided_status_sync,
     set_lecture_mindmap_status_sync,
 )
 from src.features.lectures.schemas.lecture_schemas import (
+    GuidedCitationExcerptSchema,
+    GuidedCitationSchema,
     LectureDetailSchema,
     LectureNodeSchema,
     LectureSegmentSchema,
@@ -557,6 +560,30 @@ def generate_guided_summary(lecture_id: UUID) -> None:
         except Exception:
             _set_guided_status(lecture_id, GuidedSummaryStatus.FAILED)
             raise
+
+
+async def list_guided_citations(
+    db: AsyncSession, lecture_id: UUID, user_id: UUID
+) -> list[GuidedCitationSchema]:
+    lecture = await get_lecture_by_id(db, lecture_id)
+    if lecture is None or lecture.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"success": False, "errors": ["Aula não encontrada."], "data": None},
+        )
+
+    rows = await list_guided_citations_for_lecture(db, lecture_id)
+    return [
+        GuidedCitationSchema(
+            topic=row.topic,
+            excerpts=[
+                GuidedCitationExcerptSchema(**result)
+                for result in row.results
+                if result.get("used")
+            ],
+        )
+        for row in rows
+    ]
 
 
 def _generate_guided_summary(lecture_id: UUID) -> None:

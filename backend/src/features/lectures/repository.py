@@ -271,3 +271,14 @@ def list_guided_citations_sync(db: Session, lecture_id: UUID) -> list[LectureGui
         .scalars()
         .all()
     )
+
+
+async def list_guided_citations_for_lecture(
+    db: AsyncSession, lecture_id: UUID
+) -> list[LectureGuidedCitationModel]:
+    result = await db.execute(
+        select(LectureGuidedCitationModel)
+        .where(LectureGuidedCitationModel.lecture_id == lecture_id)
+        .order_by(LectureGuidedCitationModel.created_at)
+    )
+    return list(result.scalars().all())
