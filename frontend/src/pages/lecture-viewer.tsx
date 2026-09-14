@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 
 import { SubjectPicker } from '../components/lectures/SubjectPicker'
@@ -71,6 +71,7 @@ export function LectureViewerPage() {
   const [mindmapError, setMindmapError] = useState<string | undefined>()
   const [pickerOpen, setPickerOpen] = useState(false)
   const [isSavingSubject, setIsSavingSubject] = useState(false)
+  const subjectButtonRef = useRef<HTMLButtonElement>(null)
 
   async function handleChangeSubject(subject: Subject | null) {
     const lectureId = getLectureIdFromPath()
@@ -219,25 +220,25 @@ export function LectureViewerPage() {
                       Duração <strong style={{ marginLeft: 4 }}>{formatDuration(lecture.duration_seconds)}</strong>
                     </span>
                   </span>
-                  <span className="subject-pill">
-                    <button
-                      aria-label="Trocar matéria"
-                      className="pill pill-mute subject-pill__button"
-                      onClick={() => setPickerOpen((open) => !open)}
-                      type="button"
-                    >
-                      <Icon name="pencil" size={12} />
-                      <span>{lecture.subject?.name ?? 'Definir matéria'}</span>
-                    </button>
-                    {pickerOpen ? (
-                      <SubjectPicker
-                        current={lecture.subject}
-                        isSaving={isSavingSubject}
-                        onClose={() => setPickerOpen(false)}
-                        onConfirm={(subject) => void handleChangeSubject(subject)}
-                      />
-                    ) : null}
-                  </span>
+                  <button
+                    aria-label="Trocar matéria"
+                    className="pill pill-mute subject-pill__button"
+                    onClick={() => setPickerOpen((open) => !open)}
+                    ref={subjectButtonRef}
+                    type="button"
+                  >
+                    <Icon name="pencil" size={12} />
+                    <span>{lecture.subject?.name ?? 'Definir matéria'}</span>
+                  </button>
+                  {pickerOpen ? (
+                    <SubjectPicker
+                      anchorRef={subjectButtonRef}
+                      current={lecture.subject}
+                      isSaving={isSavingSubject}
+                      onClose={() => setPickerOpen(false)}
+                      onConfirm={(subject) => void handleChangeSubject(subject)}
+                    />
+                  ) : null}
                   <span className="pill pill-accent">
                     <Icon name="listChecks" size={12} />
                     <span>

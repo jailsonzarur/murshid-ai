@@ -1,19 +1,31 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 import { fetchSubjectOptions } from '../../lib/subject-options'
 import type { Subject } from '../../types/lecture'
 import { Icon } from '../ui/icon'
 
 type SubjectPickerProps = {
+  anchorRef: React.RefObject<HTMLElement | null>
   current: Subject | null
   isSaving: boolean
   onClose: () => void
   onConfirm: (subject: Subject | null) => void
 }
 
+const GAP = 8
+const MARGIN = 12
+const MIN_HEIGHT = 180
+
 const PAGE_SIZE_HINT = 20
 
-export function SubjectPicker({ current, isSaving, onClose, onConfirm }: SubjectPickerProps) {
+export function SubjectPicker({
+  anchorRef,
+  current,
+  isSaving,
+  onClose,
+  onConfirm,
+}: SubjectPickerProps) {
   const [search, setSearch] = useState('')
   const [options, setOptions] = useState<Subject[]>([])
   const [pending, setPending] = useState<Subject | null>(null)
@@ -27,7 +39,10 @@ export function SubjectPicker({ current, isSaving, onClose, onConfirm }: Subject
 
   useEffect(() => {
     function handleOutside(event: MouseEvent) {
-      if (!containerRef.current?.contains(event.target as Node)) onClose()
+      const target = event.target as Node
+      if (containerRef.current?.contains(target)) return
+      if (anchorRef.current?.contains(target)) return
+      onClose()
     }
     function handleKey(event: KeyboardEvent) {
       if (event.key === 'Escape') onClose()
@@ -38,7 +53,7 @@ export function SubjectPicker({ current, isSaving, onClose, onConfirm }: Subject
       document.removeEventListener('mousedown', handleOutside)
       document.removeEventListener('keydown', handleKey)
     }
-  }, [onClose])
+  }, [anchorRef, onClose])
 
   useEffect(() => {
     let active = true
@@ -60,7 +75,33 @@ export function SubjectPicker({ current, isSaving, onClose, onConfirm }: Subject
     }
   }, [search])
 
-  return (
+  useLayoutEffect(() => {
+    const anchor = anchorRef.current
+    const menu = containerRef.current
+    if (!anchor || !menu) return
+
+    function place() {
+      const rect = anchor!.getBoundingClientRect()
+      const below = window.innerHeight - rect.bottom - GAP - MARGIN
+      const above = rect.top - GAP - MARGIN
+      const openUp = below < MIN_HEIGHT && above > below
+
+      menu!.style.left = `${Math.max(MARGIN, Math.min(rect.left, window.innerWidth - 280 - MARGIN))}px`
+      menu!.style.top = openUp ? '' : `${rect.bottom + GAP}px`
+      menu!.style.bottom = openUp ? `${window.innerHeight - rect.top + GAP}px` : ''
+      menu!.style.maxHeight = `${Math.max(MIN_HEIGHT, openUp ? above : below)}px`
+    }
+
+    place()
+    window.addEventListener('scroll', place, true)
+    window.addEventListener('resize', place)
+    return () => {
+      window.removeEventListener('scroll', place, true)
+      window.removeEventListener('resize', place)
+    }
+  }, [anchorRef, options.length])
+
+  return createPortal(
     <div className="subject-picker" ref={containerRef}>
       <div className="subject-picker__head">
         {pending ? (
@@ -128,6 +169,7 @@ export function SubjectPicker({ current, isSaving, onClose, onConfirm }: Subject
           Remover matéria
         </button>
       ) : null}
-    </div>
+    </div>,
+    document.body,
   )
 }

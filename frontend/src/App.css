@@ -4571,11 +4571,9 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* Troca de matéria no hero da aula */
-.subject-pill { position: relative; display: inline-flex; }
-
 .subject-pill__button {
   border: none;
-  font: inherit;
+  font-family: inherit;
   cursor: pointer;
   transition: background 0.14s ease, color 0.14s ease;
 }
@@ -4586,10 +4584,8 @@ a { color: inherit; text-decoration: none; }
 }
 
 .subject-picker {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  z-index: 40;
+  position: fixed;
+  z-index: 60;
   width: 280px;
   display: flex;
   flex-direction: column;
@@ -4660,10 +4656,15 @@ a { color: inherit; text-decoration: none; }
 .subject-picker__clear:hover { background: var(--card-alt); color: var(--ink-2); }
 
 .subject-picker__list {
+  flex: 1;
+  min-height: 0;
   max-height: 240px;
   overflow-y: auto;
   padding: 4px;
 }
+
+.subject-picker__head,
+.subject-picker__remove { flex-shrink: 0; }
 
 .subject-picker__option {
   display: flex;
