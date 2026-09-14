@@ -2,15 +2,17 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, selectinload
 
 from src.features.lectures.models import (
+    GuidedSummaryStatus,
     LectureAudioChunkModel,
     LectureAudioModel,
     LectureAudioStatus,
+    LectureGuidedCitationModel,
     LectureModel,
     LectureSegmentModel,
     LectureStatus,
@@ -221,3 +223,51 @@ async def upsert_audio_chunks(db: AsyncSession, specs: list[dict]) -> None:
 async def delete_audio_chunks(db: AsyncSession, chunks: list[LectureAudioChunkModel]) -> None:
     for chunk in chunks:
         await db.delete(chunk)
+
+
+RECLAIMABLE_GUIDED_STATUS = (GuidedSummaryStatus.NONE, GuidedSummaryStatus.FAILED)
+
+
+async def claim_lecture_guided_summary(db: AsyncSession, lecture_id: UUID) -> bool:
+    result = await db.execute(
+        update(LectureModel)
+        .where(
+            LectureModel.id == lecture_id,
+            LectureModel.guided_status.in_(RECLAIMABLE_GUIDED_STATUS),
+        )
+        .values(guided_status=GuidedSummaryStatus.REQUESTED)
+        .returning(LectureModel.id)
+    )
+    return result.scalar_one_or_none() is not None
+
+
+def set_lecture_guided_status_sync(
+    db: Session, lecture_id: UUID, value: GuidedSummaryStatus
+) -> None:
+    db.execute(
+        update(LectureModel).where(LectureModel.id == lecture_id).values(guided_status=value)
+    )
+
+
+def clear_guided_citations_sync(db: Session, lecture_id: UUID) -> None:
+    db.execute(
+        delete(LectureGuidedCitationModel).where(
+            LectureGuidedCitationModel.lecture_id == lecture_id
+        )
+    )
+
+
+def add_guided_citation_sync(db: Session, citation: LectureGuidedCitationModel) -> None:
+    db.add(citation)
+
+
+def list_guided_citations_sync(db: Session, lecture_id: UUID) -> list[LectureGuidedCitationModel]:
+    return list(
+        db.execute(
+            select(LectureGuidedCitationModel)
+            .where(LectureGuidedCitationModel.lecture_id == lecture_id)
+            .order_by(LectureGuidedCitationModel.created_at)
+        )
+        .scalars()
+        .all()
+    )

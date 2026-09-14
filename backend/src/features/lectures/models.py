@@ -41,6 +41,14 @@ class MindmapStatus(enum.StrEnum):
     FAILED = "FAILED"
 
 
+class GuidedSummaryStatus(enum.StrEnum):
+    NONE = "NONE"
+    REQUESTED = "REQUESTED"
+    PROCESSING = "PROCESSING"
+    DONE = "DONE"
+    FAILED = "FAILED"
+
+
 class LectureStatus(enum.StrEnum):
     ACTIVE = "ACTIVE"
     PAUSED = "PAUSED"
@@ -89,6 +97,12 @@ class LectureModel(Base):
     )
     mindmap_status: Mapped[MindmapStatus] = mapped_column(
         SQLEnum(MindmapStatus, native_enum=False), nullable=False, default=MindmapStatus.NONE
+    )
+    guided_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    guided_status: Mapped[GuidedSummaryStatus] = mapped_column(
+        SQLEnum(GuidedSummaryStatus, native_enum=False),
+        nullable=False,
+        default=GuidedSummaryStatus.NONE,
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(
@@ -172,3 +186,21 @@ class LectureAudioChunkModel(Base):
 
     def __repr__(self) -> str:
         return f"<LectureAudioChunkModel(id={self.id}, sequence={self.sequence})>"
+
+
+class LectureGuidedCitationModel(Base):
+    __tablename__ = "lecture_guided_citations"
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    lecture_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("lectures.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    topic: Mapped[str] = mapped_column(Text, nullable=False)
+    query: Mapped[str] = mapped_column(Text, nullable=False)
+    results: Mapped[list] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+    def __repr__(self) -> str:
+        return f"<LectureGuidedCitationModel(id={self.id}, topic={self.topic})>"

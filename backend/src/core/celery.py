@@ -54,6 +54,7 @@ celery_app.conf.update(
         "transcribe_chunk_task": {"queue": "chunks"},
         "generate_lecture_summary_task": {"queue": "summaries"},
         "generate_lecture_mindmap_task": {"queue": "summaries"},
+        "generate_lecture_guided_summary_task": {"queue": "summaries"},
         "ingest_subject_document_task": {"queue": "documents"},
         "index_subject_document_task": {"queue": "documents"},
     },

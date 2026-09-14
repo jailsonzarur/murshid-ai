@@ -2,6 +2,9 @@ from fastapi import APIRouter
 
 from src.features.lectures.routes.delete_lecture import router as delete_lecture_router
 from src.features.lectures.routes.finish_lecture import router as finish_lecture_router
+from src.features.lectures.routes.generate_guided_summary import (
+    router as generate_guided_summary_router,
+)
 from src.features.lectures.routes.generate_mindmap import router as generate_mindmap_router
 from src.features.lectures.routes.get_lecture import router as get_lecture_router
 from src.features.lectures.routes.import_lecture import router as import_lecture_router
@@ -26,6 +29,7 @@ router.include_router(process_segment_router, prefix="/lectures")
 router.include_router(delete_lecture_router, prefix="/lectures")
 router.include_router(import_lecture_router, prefix="/lectures")
 router.include_router(generate_mindmap_router, prefix="/lectures")
+router.include_router(generate_guided_summary_router, prefix="/lectures")
 router.include_router(update_lecture_subject_router, prefix="/lectures")
 
 __all__ = ["router"]
