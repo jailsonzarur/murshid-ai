@@ -65,7 +65,9 @@ def split_into_sections(elements: list[Element], document_title: str) -> list[Se
             if isinstance(element, Line)
             else None
         )
-        if level == 1 and element.text in furniture:
+        if level is not None and not isinstance(element, Line):
+            level = None
+        if level == 1 and isinstance(element, Line) and element.text in furniture:
             level = None
         if level is None or not isinstance(element, Line):
             current.append(element)
