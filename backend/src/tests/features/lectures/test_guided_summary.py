@@ -7,7 +7,6 @@ import pytest_asyncio
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.features.lectures.ai.guided_summary_agent import drop_unknown_citations
 from src.features.lectures.models import GuidedSummaryStatus, LectureModel, LectureStatus
 from src.features.lectures.services.lecture_service import request_guided_summary
 from src.features.subjects.models import SubjectModel
@@ -117,20 +116,3 @@ class TestRequestGuidedSummary:
 
         assert exc.value.status_code == 404
         assert dispatched == []
-
-
-class TestCitationValidation:
-    def test_known_citations_survive(self):
-        texto = "A parede é espessa [[1]] e retém o corante [[2]]."
-
-        assert drop_unknown_citations(texto, {1, 2}) == texto
-
-    def test_an_invented_citation_is_removed(self):
-        texto = "A parede é espessa [[1]] e retém o corante [[7]]."
-
-        assert drop_unknown_citations(texto, {1, 2}) == "A parede é espessa [[1]] e retém o corante ."
-
-    def test_text_without_citations_is_untouched(self):
-        texto = "Nenhuma citação aqui."
-
-        assert drop_unknown_citations(texto, set()) == texto

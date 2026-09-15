@@ -26,35 +26,46 @@ function formatNow() {
 }
 
 type SummaryPdfButtonProps = {
+  content: string
   durationLabel: string
+  fileSuffix?: string
+  footerNote?: string
+  label?: string
   lectureTitle: string | null
   subjectName: string | null
-  summary: string
   topicsCount: number
 }
 
 export function SummaryPdfButton({
+  content,
   durationLabel,
+  fileSuffix = 'resumo',
+  footerNote = 'Resumo gerado por IA a partir da transcrição da aula.',
+  label = 'Exportar PDF',
   lectureTitle,
   subjectName,
-  summary,
   topicsCount,
 }: SummaryPdfButtonProps) {
   const [generatedAt, setGeneratedAt] = useState(formatNow)
+  const [isExporting, setIsExporting] = useState(false)
   const title = lectureTitle ?? 'Aula sem título'
 
   const handleExportPdf = () => {
     const previousTitle = document.title
 
-    flushSync(() => setGeneratedAt(formatNow()))
+    flushSync(() => {
+      setGeneratedAt(formatNow())
+      setIsExporting(true)
+    })
 
     const cleanup = () => {
       document.title = previousTitle
       document.body.classList.remove('printing-summary')
+      setIsExporting(false)
       window.removeEventListener('afterprint', cleanup)
     }
 
-    document.title = `${slugify(title)}-resumo`
+    document.title = `${slugify(title)}-${fileSuffix}`
     document.body.classList.add('printing-summary')
     window.addEventListener('afterprint', cleanup)
     window.setTimeout(cleanup, 60000)
@@ -64,17 +75,18 @@ export function SummaryPdfButton({
   return (
     <>
       <button
-        aria-label="Exportar o resumo da aula em PDF"
+        aria-label={`${label} da aula`}
         className="btn btn-ghost btn-sm"
         onClick={handleExportPdf}
-        title="Exportar o resumo da aula em PDF"
+        title={`${label} da aula`}
         type="button"
       >
         <Icon name="fileText" size={12} />
-        <span>Exportar PDF</span>
+        <span>{label}</span>
       </button>
 
-      {createPortal(
+      {isExporting
+        ? createPortal(
         <article id="summary-print-stage">
           <table className="summary-print-sheet">
             <thead>
@@ -102,12 +114,10 @@ export function SummaryPdfButton({
                   </header>
 
                   <div className="summary-print-body">
-                    <ReactMarkdown>{summary}</ReactMarkdown>
+                    <ReactMarkdown>{content}</ReactMarkdown>
                   </div>
 
-                  <footer className="summary-print-foot">
-                    Resumo gerado por IA a partir da transcrição da aula.
-                  </footer>
+                  <footer className="summary-print-foot">{footerNote}</footer>
                 </td>
               </tr>
             </tbody>
@@ -120,8 +130,9 @@ export function SummaryPdfButton({
             </tfoot>
           </table>
         </article>,
-        document.body,
-      )}
+            document.body,
+          )
+        : null}
     </>
   )
 }

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 
-import { GuidedSummary } from '../components/lectures/GuidedSummary'
 import { SubjectPicker } from '../components/lectures/SubjectPicker'
 import { SummaryModal } from '../components/lectures/SummaryModal'
 import { SummaryPdfButton } from '../components/lectures/SummaryPdfButton'
@@ -17,12 +16,11 @@ import {
   generateLectureGuidedSummary,
   generateLectureMindmap,
   getLecture,
-  listLectureGuidedCitations,
   updateLectureSubject,
 } from '../lib/api'
 import { getAccessToken } from '../lib/auth'
 import { navigateTo } from '../lib/navigation'
-import type { GuidedCitation, LectureDetail, Subject } from '../types/lecture'
+import type { LectureDetail, Subject } from '../types/lecture'
 
 function getLectureIdFromPath() {
   const [, resource, lectureId] = window.location.pathname.split('/')
@@ -81,7 +79,6 @@ export function LectureViewerPage() {
   const [isSavingSubject, setIsSavingSubject] = useState(false)
   const subjectButtonRef = useRef<HTMLButtonElement>(null)
   const [guidedError, setGuidedError] = useState<string | undefined>()
-  const [citations, setCitations] = useState<GuidedCitation[]>([])
 
   const isBuildingGuided =
     lecture?.guided_status === 'REQUESTED' || lecture?.guided_status === 'PROCESSING'
@@ -157,17 +154,6 @@ export function LectureViewerPage() {
 
     return () => window.clearInterval(intervalId)
   }, [isBuildingGuided])
-
-  useEffect(() => {
-    if (!lecture?.guided_summary) return
-
-    const lectureId = getLectureIdFromPath()
-    if (!lectureId) return
-
-    void listLectureGuidedCitations(lectureId)
-      .then(setCitations)
-      .catch(() => undefined)
-  }, [lecture?.guided_summary])
 
   useEffect(() => {
     if (!isBuildingMindmap) return
@@ -261,6 +247,8 @@ export function LectureViewerPage() {
             lecture.status === 'PROCESSING' ||
             (lecture.status === 'COMPLETED' && lecture.summary === null && lecture.nodes.length === 0)
           const showTree = lecture.nodes.length > 0 || isProcessing || isBuildingMindmap
+          const showGuided = Boolean(lecture.guided_summary) || isBuildingGuided
+          const columns = 1 + (showTree ? 1 : 0) + (showGuided ? 1 : 0)
           return (
         <>
           {/* Hero compact */}
@@ -315,9 +303,7 @@ export function LectureViewerPage() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: showTree
-                ? 'minmax(0, 1fr) minmax(0, 1.2fr)'
-                : 'minmax(0, 1fr)',
+              gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
               gap: 18,
               marginBottom: 18,
             }}
@@ -333,7 +319,7 @@ export function LectureViewerPage() {
                     durationLabel={formatDuration(lecture.duration_seconds)}
                     lectureTitle={lecture.title}
                     subjectName={lecture.subject?.name ?? null}
-                    summary={lecture.summary}
+                    content={lecture.summary}
                     topicsCount={lecture.nodes.length}
                   />
                 ) : (
@@ -434,6 +420,40 @@ export function LectureViewerPage() {
                 </CardContent>
               </Card>
             ) : null}
+
+            {showGuided ? (
+              <Card style={{ height: 520, display: 'flex', flexDirection: 'column' }}>
+                <CardHeader>
+                  <div>
+                    <CardTitle>Resumo guiado</CardTitle>
+                    <div className="card-sub">
+                      Embasado em {lecture.subject?.name ?? 'sua bibliografia'}
+                    </div>
+                  </div>
+                  {lecture.guided_summary ? (
+                    <SummaryPdfButton
+                      content={lecture.guided_summary}
+                      durationLabel={formatDuration(lecture.duration_seconds)}
+                      fileSuffix="resumo-guiado"
+                      footerNote="Resumo guiado gerado por IA a partir da transcrição da aula e da bibliografia da matéria."
+                      label="PDF"
+                      lectureTitle={lecture.title}
+                      subjectName={lecture.subject?.name ?? null}
+                      topicsCount={lecture.nodes.length}
+                    />
+                  ) : null}
+                </CardHeader>
+                <CardContent style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                  {lecture.guided_summary ? (
+                    <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--ink-2)' }}>
+                      <ReactMarkdown>{lecture.guided_summary}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    <ProcessingState label="Escrevendo o resumo guiado..." />
+                  )}
+                </CardContent>
+              </Card>
+            ) : null}
           </div>
 
           {/* Actions */}
@@ -475,29 +495,6 @@ export function LectureViewerPage() {
           ) : null}
           {guidedError ? (
             <p style={{ marginTop: 10, fontSize: 12, color: 'var(--danger)' }}>{guidedError}</p>
-          ) : null}
-
-          {lecture.guided_summary || isBuildingGuided ? (
-            <Card style={{ marginTop: 18 }}>
-              <CardHeader>
-                <div>
-                  <CardTitle>Resumo guiado</CardTitle>
-                  <div className="card-sub">
-                    Explicado com a bibliografia de {lecture.subject?.name ?? 'sua matéria'}
-                  </div>
-                </div>
-                <span className="tag accent">
-                  <Icon name="bookOpen" size={11} /> {citations.length} tópicos
-                </span>
-              </CardHeader>
-              <CardContent>
-                {lecture.guided_summary ? (
-                  <GuidedSummary citations={citations} markdown={lecture.guided_summary} />
-                ) : (
-                  <ProcessingState label="Escrevendo o resumo guiado..." />
-                )}
-              </CardContent>
-            </Card>
           ) : null}
 
           {transcriptOpen ? (

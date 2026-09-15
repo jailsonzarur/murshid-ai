@@ -648,7 +648,6 @@ def _generate_guided_summary(lecture_id: UUID) -> None:
                     number += 1
                     excerpts.append(
                         Excerpt(
-                            number=number,
                             document=documents.get(chunk.document_id, "?"),
                             heading_path=chunk.heading_path,
                             page=chunk.page_start,
