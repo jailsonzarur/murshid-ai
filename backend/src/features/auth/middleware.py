@@ -43,6 +43,10 @@ GUEST_ALLOWED_ROUTES = {
     ("POST", "/lectures/{lecture_id}/resume"),
     ("POST", "/lectures/{lecture_id}/finish"),
     ("POST", "/lectures/{lecture_id}/segments"),
+    ("PATCH", "/lectures/{lecture_id}/subject"),
+    ("POST", "/lectures/{lecture_id}/mindmap"),
+    ("POST", "/lectures/{lecture_id}/guided-summary"),
+    ("GET", "/lectures/{lecture_id}/guided-citations"),
 }
 
 
