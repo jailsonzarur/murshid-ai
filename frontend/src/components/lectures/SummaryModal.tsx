@@ -4,13 +4,20 @@ import { Card, CardContent } from '../ui/card'
 import { Icon } from '../ui/icon'
 
 type SummaryModalProps = {
+  heading?: string
   lectureTitle: string | null
   onClose: () => void
   subjectName: string | null
   summary: string
 }
 
-export function SummaryModal({ lectureTitle, onClose, subjectName, summary }: SummaryModalProps) {
+export function SummaryModal({
+  heading = 'Resumo da aula',
+  lectureTitle,
+  onClose,
+  subjectName,
+  summary,
+}: SummaryModalProps) {
   return (
     <div className="modal-backdrop" role="presentation">
       <Card style={{ maxWidth: 760, width: '100%', maxHeight: '88vh', display: 'flex', flexDirection: 'column' }}>
@@ -33,7 +40,7 @@ export function SummaryModal({ lectureTitle, onClose, subjectName, summary }: Su
               <Icon name="fileText" size={18} />
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Resumo da aula</h2>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{heading}</h2>
               <div style={{ fontSize: 12.5, color: 'var(--ink-4)', marginTop: 2 }}>
                 {lectureTitle ?? 'Aula sem título'}
                 {subjectName ? ` · ${subjectName}` : ''}

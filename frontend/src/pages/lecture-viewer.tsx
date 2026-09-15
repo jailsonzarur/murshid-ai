@@ -74,6 +74,7 @@ export function LectureViewerPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [transcriptOpen, setTranscriptOpen] = useState(false)
   const [summaryOpen, setSummaryOpen] = useState(false)
+  const [guidedOpen, setGuidedOpen] = useState(false)
   const [mindmapError, setMindmapError] = useState<string | undefined>()
   const [pickerOpen, setPickerOpen] = useState(false)
   const [isSavingSubject, setIsSavingSubject] = useState(false)
@@ -443,11 +444,55 @@ export function LectureViewerPage() {
                     />
                   ) : null}
                 </CardHeader>
-                <CardContent style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                <CardContent
+                  style={{ padding: 0, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+                >
                   {lecture.guided_summary ? (
-                    <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--ink-2)' }}>
-                      <ReactMarkdown>{lecture.guided_summary}</ReactMarkdown>
-                    </div>
+                    <>
+                      <div style={{ position: 'relative', flex: 1, minHeight: 0, padding: '18px 22px 0' }}>
+                        <div
+                          style={{
+                            height: '100%',
+                            overflow: 'hidden',
+                            fontSize: 14,
+                            lineHeight: 1.6,
+                            color: 'var(--ink-2)',
+                          }}
+                        >
+                          <ReactMarkdown>{lecture.guided_summary}</ReactMarkdown>
+                        </div>
+                        <div
+                          aria-hidden="true"
+                          style={{
+                            position: 'absolute',
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            height: 80,
+                            background:
+                              'linear-gradient(to bottom, transparent, var(--card-bg, #fff) 75%)',
+                            pointerEvents: 'none',
+                          }}
+                        />
+                      </div>
+                      <div
+                        style={{
+                          padding: '12px 22px 18px',
+                          borderTop: '1px solid var(--line)',
+                          display: 'flex',
+                          justifyContent: 'flex-end',
+                        }}
+                      >
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => setGuidedOpen(true)}
+                          type="button"
+                        >
+                          <Icon name="bookOpen" size={12} />
+                          <span>Ver resumo guiado completo</span>
+                        </button>
+                      </div>
+                    </>
                   ) : (
                     <ProcessingState label="Escrevendo o resumo guiado..." />
                   )}
@@ -503,6 +548,16 @@ export function LectureViewerPage() {
               onClose={() => setTranscriptOpen(false)}
               segments={lecture.segments}
               subjectName={lecture.subject?.name ?? null}
+            />
+          ) : null}
+
+          {guidedOpen && lecture.guided_summary ? (
+            <SummaryModal
+              heading="Resumo guiado"
+              lectureTitle={lecture.title}
+              onClose={() => setGuidedOpen(false)}
+              subjectName={lecture.subject?.name ?? null}
+              summary={lecture.guided_summary}
             />
           ) : null}
 
